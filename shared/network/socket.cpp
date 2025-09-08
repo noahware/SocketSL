@@ -193,7 +193,7 @@ boost_tcp_socket_t::asio_endpoint_t boost_tcp_socket_t::local_endpoint() const
 	return lowest_layer.local_endpoint();
 }
 
-boost_tcp_socket_t::asio_handshake_type_t boost_tcp_socket_t::asio_handshake_type(handshake_type_t type)
+boost_tcp_socket_t::asio_handshake_type_t boost_tcp_socket_t::asio_handshake_type(const handshake_type_t type)
 {
 	return type == handshake_type_t::client ? asio_handshake_type_t::client : asio_handshake_type_t::server;
 }

@@ -3,18 +3,26 @@
 #include "connection/listener.hpp"
 #include "network/socket.hpp"
 
+static void set_up_ssl_context(ssl_context_t& ssl_context)
+{
+	ssl_context.disable_peer_verification();
+
+	ssl_context.use_certificate("client_certificate.pem", ssl_context_t::crypto_file_format_t::pem);
+	ssl_context.use_private_key("client_private_key.pem", ssl_context_t::crypto_file_format_t::pem);
+}
+
 std::int32_t main()
 {
 	try
 	{
 		spdlog::info("server");
 
-		const auto io_context = std::make_shared<boost::asio::io_context>();
-
-		constexpr std::uint16_t port = 2457;
-
 		const auto client_ssl_context = std::make_shared<boost_ssl_context_t>(boost_ssl_context_t::ssl_method_t::tlsv12_server);
-		const auto client_listener = std::make_shared<boost_connection_listener_t<client_connection_t>>(io_context, client_ssl_context, port);
+
+		set_up_ssl_context(*client_ssl_context);
+
+		const auto io_context = std::make_shared<boost::asio::io_context>();
+		const auto client_listener = std::make_shared<boost_connection_listener_t<client_connection_t>>(io_context, client_ssl_context, 2457);
 
 		client_listener->async_wait_for_connection();
 

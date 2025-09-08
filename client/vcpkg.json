@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "spdlog",
+    "openssl",
+    "boost-asio",
+    "boost-endian",
+    "flatbuffers"
+  ]
+}

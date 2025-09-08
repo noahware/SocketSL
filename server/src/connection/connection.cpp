@@ -118,7 +118,7 @@ void handle_valid_test_request(socket_t& socket, const Client::TestRequest* cons
 {
 	spdlog::info("test request key: 0x{:X}", request_body->key());
 
-	constexpr std::uint64_t response_key = 0x45678;
+	constexpr std::uint64_t response_key = 0x56789;
 	const auto response_body = std::make_shared<std::vector<std::uint8_t>>(response::construct::make_test_response(response_key));
 
 	response::async_send_buffer(socket, response_body,
