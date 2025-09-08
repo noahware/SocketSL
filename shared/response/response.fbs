@@ -1,0 +1,6 @@
+namespace Client;
+
+table TestResponse
+{
+    key: uint64;
+}

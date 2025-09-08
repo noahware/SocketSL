@@ -1,0 +1,19 @@
+table RequestHeader
+{
+    type: uint8;
+    body_size: uint64;
+}
+
+namespace Client;
+
+enum RequestId : uint8
+{
+    Test = 0
+} 
+
+table TestRequest
+{
+    key: uint64;
+}
+
+root_type RequestHeader;
