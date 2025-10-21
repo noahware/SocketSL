@@ -42,7 +42,7 @@ public:
 	boost_ssl_context_t() = delete;
 	
 	explicit boost_ssl_context_t(const ssl_method_t ssl_method)
-		: native_handle_(std::make_unique<asio_ssl_t>(ssl_method)) {}
+			:	native_handle_(std::make_unique<asio_ssl_t>(ssl_method)) { }
 
 	void disable_peer_verification() override;
 	void require_peer_verification() override;

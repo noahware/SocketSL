@@ -44,7 +44,7 @@ namespace serialisation
 		return deserialise<t>(buffer.data());
 	}
 
-	template<typename t>
+	template <typename t>
 	static std::uint8_t is_valid(const void* const buffer, const std::uint64_t buffer_size)
 	{
 		flatbuffers::Verifier verifier(static_cast<const std::uint8_t*>(buffer), buffer_size);

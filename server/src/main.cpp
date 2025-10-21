@@ -5,10 +5,13 @@
 
 static void set_up_ssl_context(ssl_context_t& ssl_context)
 {
-	ssl_context.disable_peer_verification();
+	ssl_context.require_peer_verification();
 
+	ssl_context.load_verify_file("certificate_authority.pem");
 	ssl_context.use_certificate("server_certificate.pem", ssl_context_t::crypto_file_format_t::pem);
 	ssl_context.use_private_key("server_private_key.pem", ssl_context_t::crypto_file_format_t::pem);
+
+	ssl_context.use_tmp_dh_file("dhparams.pem");
 }
 
 std::int32_t main()

@@ -27,6 +27,7 @@ static void set_up_ssl_context(ssl_context_t& ssl_context)
 	ssl_context.load_verify_file("certificate_authority.pem");
 	ssl_context.use_certificate("client_certificate.pem", ssl_context_t::crypto_file_format_t::pem);
 	ssl_context.use_private_key("client_private_key.pem", ssl_context_t::crypto_file_format_t::pem);
+	ssl_context.use_tmp_dh_file("dhparams.pem");
 }
 
 static void connect_to_server(socket_t& socket)

@@ -32,10 +32,9 @@ public:
 	typedef boost::asio::ip::tcp::socket asio_socket_t;
 
 	boost_connection_listener_t(std::shared_ptr<asio_context_t> io_context, std::shared_ptr<boost_ssl_context_t> ssl_context, const std::uint16_t port)
-		: io_context_(std::move(io_context)),
-		ssl_context_(std::move(ssl_context)),
-		acceptor_(std::make_unique<acceptor_t>(*io_context_, endpoint_t(tcp_t::v4(), port))) {
-	}
+			:	io_context_(std::move(io_context)),
+				ssl_context_(std::move(ssl_context)),
+				acceptor_(std::make_unique<acceptor_t>(*io_context_, endpoint_t(tcp_t::v4(), port))) { }
 
 	void async_wait_for_connection() override;
 

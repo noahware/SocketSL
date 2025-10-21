@@ -1,6 +1,6 @@
 #include "crypto.hpp"
-#include <openssl/evp.h>
 
+#include <openssl/evp.h>
 #include <spdlog/spdlog.h>
 
 static void free_evp_md_context(evp_md_ctx_st* context)
@@ -8,7 +8,7 @@ static void free_evp_md_context(evp_md_ctx_st* context)
 	EVP_MD_CTX_free(context);
 }
 
-std::vector<std::uint8_t> do_evp_hash(const std::vector<std::uint8_t>& input, const EVP_MD* type)
+std::vector<std::uint8_t> do_evp_hash(const std::span<std::uint8_t>& input, const EVP_MD* type)
 {
 	constexpr std::int32_t success_status = 1;
 
@@ -57,7 +57,7 @@ std::vector<std::uint8_t> do_evp_hash(const std::vector<std::uint8_t>& input, co
 	return { hash.data(), hash.data() + length_of_hash };
 }
 
-crypto::sha256::hash_t crypto::sha256::hash(const std::vector<std::uint8_t>& input, std::uint8_t& status_out)
+crypto::sha256::hash_t crypto::sha256::hash(const std::span<std::uint8_t>& input, std::uint8_t& status_out)
 {
 	const std::vector<std::uint8_t> hash = do_evp_hash(input, EVP_sha256());
 

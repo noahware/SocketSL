@@ -26,6 +26,11 @@ void connection_t::await_request()
 	read_request_header_size();
 }
 
+socket_t& connection_t::socket() const
+{
+	return *socket_;
+}
+
 void connection_t::close_self()
 {
 	parent_listener_->remove_connection(this);
@@ -114,26 +119,32 @@ void connection_t::read_request_body(const request::request_id_t request_id, con
 	);
 }
 
-void handle_valid_test_request(socket_t& socket, const Client::TestRequest* const request_body)
+void send_response(const std::shared_ptr<connection_t>& connection, const std::shared_ptr<std::vector<std::uint8_t>>& response_body)
+{
+	response::async_send_buffer(connection->socket(), response_body,
+		[connection](const std::uint8_t is_valid)
+		{
+			if (is_valid)
+			{
+				spdlog::info("successfully sent response");
+			}
+			else
+			{
+				spdlog::error("failed to send response");
+			}
+		}
+	);
+}
+
+void handle_valid_test_request(const std::shared_ptr<connection_t>& connection, const Client::TestRequest* const request_body)
 {
 	spdlog::info("test request key: 0x{:X}", request_body->key());
 
 	constexpr std::uint64_t response_key = 0x56789;
+
 	const auto response_body = std::make_shared<std::vector<std::uint8_t>>(response::construct::make_test_response(response_key));
 
-	response::async_send_buffer(socket, response_body,
-		[response_key](const std::uint8_t is_valid)
-		{
-			if (is_valid)
-			{
-				spdlog::info("successfully sent test response (key: 0x{:X})", response_key);
-			}
-			else
-			{
-				spdlog::error("failed to send test response");
-			}
-		}
-	);
+	send_response(connection, response_body);
 }
 
 void client_connection_t::handle_request(const request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
@@ -143,8 +154,9 @@ void client_connection_t::handle_request(const request::request_id_t request_id,
 		if (serialisation::is_valid<Client::TestRequest>(*body_buffer))
 		{
 			const auto* request_body = serialisation::deserialise<Client::TestRequest>(*body_buffer);
+			const auto shared_this = this->shared_from_this();
 
-			handle_valid_test_request(*socket_, request_body);
+			handle_valid_test_request(shared_this, request_body);
 		}
 		else
 		{
