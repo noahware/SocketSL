@@ -75,11 +75,11 @@ void client_connection_t::handle_request(const request::request_id_t request_id,
 
 # Specification
 
-## Sockets:
+## Sockets
 
 The sockets are TCP TLS connections. The socket library can be interchanged with ease, due to the socket implementation being abstracted. By default, the project uses [`boost-asio`](https://github.com/boostorg/asio) (with no modifications to its original source code, adhering to the [Boost Software License](https://www.boost.org/LICENSE_1_0.txt)).
 
-## SSL:
+## SSL
 
 The SSL context is configurable by using the member functions of `ssl_context_t`:
 
@@ -196,6 +196,56 @@ const auto client_listener = std::make_shared<boost_connection_listener_t<client
 
 client_listener->async_wait_for_connection();
 ```
+
+# Usage
+
+The project at the moment uses `mutual TLS with temporary dhparams` as an example, this is configured in the `set_up_ssl_context` functions in the client and server. This is purely an example of an SSL setup and the project supports many more SSL configurations.
+
+## Key generation
+
+The following commands use `-days 730` to specify the validity of the certificates to be of 2 years and `-subj` to specify the certificate parameters. These should be changed adequately for production.
+
+First generate Diffie-Hellman param keys and the certificate authority:
+
+```
+openssl dhparam -out dhparams.pem 4096
+
+openssl req -x509 -newkey rsa:4096 -nodes -keyout certificate_authority_key.pem -out certificate_authority.pem -subj "/CN=ca"
+```
+
+Next, generate the client and server private keys and CSRs:
+
+```
+openssl req -newkey rsa:4096 -nodes -keyout server_private_key.pem -out server_csr.pem -subj "/CN=server" -days 730 
+openssl req -newkey rsa:4096 -nodes -keyout client_private_key.pem -out client_csr.pem -subj "/CN=client" -days 730 
+```
+
+Finally, generate the client and server certificates:
+
+```
+openssl x509 -req -in server_csr.pem -out server_certificate.pem -CA certificate_authority.pem -CAkey certificate_authority_key.pem -CAcreateserial -days 730
+openssl x509 -req -in client_csr.pem -out client_certificate.pem -CA certificate_authority.pem -CAkey certificate_authority_key.pem -CAcreateserial -days 730
+```
+
+## Where to place keys
+
+The following keys should be accessible by the client (in the example they should be in same directory as the client is executed in):
+
+- dhparams.pem
+- certificate_authority.pem
+- client_certificate.pem
+- client_private_key.pem
+
+The following keys should be accessible by the server (in the example they should be in same directory as the server is executed in):
+
+- dhparams.pem
+- certificate_authority.pem
+- server_certificate.pem
+- server_private_key.pem
+
+## Running
+
+To run the client and server successfully, make sure the keys are generated and placed correctly, as explained by previous steps.
 
 # Credits
 
