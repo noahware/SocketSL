@@ -167,7 +167,6 @@
     </CustomBuild>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\shared\crypto\crypto.cpp" />
     <ClCompile Include="..\shared\network\socket.cpp" />
     <ClCompile Include="..\shared\network\ssl.cpp" />
     <ClCompile Include="..\shared\request\request.cpp" />

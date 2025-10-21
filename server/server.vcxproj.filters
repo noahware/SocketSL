@@ -24,9 +24,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\crypto\crypto.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\shared\network\socket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
