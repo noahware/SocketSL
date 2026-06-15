@@ -9,7 +9,7 @@ namespace sl
 			{
 				if (is_valid)
 				{
-					spdlog::info("handshake was successful");
+					LOG_INFO("handshake was successful");
 
 					connections_.push_back(connection);
 
@@ -17,7 +17,7 @@ namespace sl
 				}
 				else
 				{
-					spdlog::error("failed to handshake");
+					LOG_ERR("failed to handshake");
 				}
 			}
 		);

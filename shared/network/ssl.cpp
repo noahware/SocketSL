@@ -1,7 +1,5 @@
 #include "ssl.hpp"
 
-#include <spdlog/spdlog.h>
-
 namespace sl
 {
 	void boost_ssl_context::disable_peer_verification()

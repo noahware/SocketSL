@@ -51,7 +51,7 @@ namespace sl
 				}
 				else
 				{
-					spdlog::error("failed to read request header size");
+					LOG_ERR("failed to read request header size");
 
 					close_self();
 				}
@@ -68,7 +68,7 @@ namespace sl
 			{
 				if (is_valid)
 				{
-					spdlog::info("received request header ({})", header_size);
+					LOG_INFO("received request header ({})", header_size);
 
 					if (serialisation::is_valid<RequestHeader>(*header_buffer))
 					{
@@ -81,14 +81,14 @@ namespace sl
 					}
 					else
 					{
-						spdlog::error("request header is invalid");
+						LOG_ERR("request header is invalid");
 
 						close_self();
 					}
 				}
 				else
 				{
-					spdlog::error("failed to read request header buffer from socket");
+					LOG_ERR("failed to read request header buffer from socket");
 
 					close_self();
 				}
@@ -105,7 +105,7 @@ namespace sl
 			{
 				if (is_valid)
 				{
-					spdlog::info("received request buffer");
+					LOG_INFO("received request buffer");
 
 					handle_request(request_id, body_buffer);
 
@@ -113,7 +113,7 @@ namespace sl
 				}
 				else
 				{
-					spdlog::error("failed to read request buffer from socket");
+					LOG_ERR("failed to read request buffer from socket");
 
 					close_self();
 				}
@@ -128,11 +128,11 @@ namespace sl
 			{
 				if (is_valid)
 				{
-					spdlog::info("successfully sent response");
+					LOG_INFO("successfully sent response");
 				}
 				else
 				{
-					spdlog::error("failed to send response");
+					LOG_ERR("failed to send response");
 				}
 			}
 		);
@@ -140,7 +140,7 @@ namespace sl
 
 	static void handle_valid_test_request(const std::shared_ptr<connection>& connection, const Client::TestRequest* const request_body)
 	{
-		spdlog::info("test request key: 0x{:X}", request_body->key());
+		LOG_INFO("test request key: 0x{:X}", request_body->key());
 
 		constexpr std::uint64_t response_key = 0x56789;
 
@@ -162,12 +162,12 @@ namespace sl
 			}
 			else
 			{
-				spdlog::error("failed to verify test request body validity");
+				LOG_ERR("failed to verify test request body validity");
 			}
 		}
 		else
 		{
-			spdlog::error("unknown request type");
+			LOG_ERR("unknown request type");
 		}
 	}
 }

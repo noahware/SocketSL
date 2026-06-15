@@ -1,0 +1,119 @@
+[cmake]
+version = "3.21"
+
+[project]
+name = "SocketSL"
+version = "0.1.0"
+languages = ["CXX"]
+cmake-after = """
+# Sub-project options
+set(FLATBUFFERS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(FLATBUFFERS_INSTALL OFF CACHE BOOL "" FORCE)
+set(FLATBUFFERS_BUILD_FLATC ON CACHE BOOL "" FORCE)
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+
+# Only fetch the Boost libraries we use
+set(BOOST_INCLUDE_LIBRARIES system asio endian CACHE STRING "" FORCE)
+
+# Disable LibreSSL extras
+set(LIBRESSL_APPS OFF CACHE BOOL "" FORCE)
+set(LIBRESSL_TESTS OFF CACHE BOOL "" FORCE)
+set(LIBRESSL_INSTALL OFF CACHE BOOL "" FORCE)
+"""
+
+[fetch-content.spdlog]
+git = "https://github.com/gabime/spdlog.git"
+tag = "v1.15.3"
+
+[fetch-content.flatbuffers]
+git = "https://github.com/google/flatbuffers.git"
+tag = "v24.12.23"
+
+[fetch-content.Boost]
+git = "https://github.com/boostorg/boost.git"
+tag = "boost-1.88.0"
+
+[fetch-content.libressl]
+url = "https://github.com/libressl/portable/releases/download/v4.0.0/libressl-4.0.0.tar.gz"
+
+[target.socketsl]
+type = "static"
+sources = [
+    "shared/network/socket.cpp",
+    "shared/network/ssl.cpp",
+    "shared/request/request.cpp",
+    "shared/response/response.cpp",
+]
+include-directories = ["shared"]
+compile-features = ["cxx_std_20"]
+link-libraries = [
+    "spdlog::spdlog",
+    "flatbuffers",
+    "Boost::system",
+    "Boost::asio",
+    "Boost::endian",
+    "ssl",
+    "crypto",
+]
+cmake-after = """
+# FlatBuffers code generation
+set(FBS_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/schema")
+file(MAKE_DIRECTORY "${FBS_GENERATED_DIR}")
+
+set(FBS_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/shared/request/request.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/shared/response/response.fbs"
+)
+
+set(FBS_GENERATED_HEADERS)
+foreach(FBS_FILE ${FBS_FILES})
+    get_filename_component(FBS_NAME "${FBS_FILE}" NAME_WE)
+    set(FBS_OUTPUT "${FBS_GENERATED_DIR}/${FBS_NAME}_generated.h")
+    add_custom_command(
+        OUTPUT "${FBS_OUTPUT}"
+        COMMAND $<TARGET_FILE:flatc> --cpp -o "${FBS_GENERATED_DIR}" "${FBS_FILE}"
+        DEPENDS flatc "${FBS_FILE}"
+        COMMENT "Generating ${FBS_NAME}_generated.h"
+    )
+    list(APPEND FBS_GENERATED_HEADERS "${FBS_OUTPUT}")
+endforeach()
+
+add_custom_target(generate_flatbuffers DEPENDS ${FBS_GENERATED_HEADERS})
+
+target_sources(socketsl PRIVATE ${FBS_GENERATED_HEADERS})
+target_include_directories(socketsl PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
+add_dependencies(socketsl generate_flatbuffers)
+
+# Threading
+find_package(Threads REQUIRED)
+target_link_libraries(socketsl PUBLIC Threads::Threads)
+
+# Platform-specific
+if(WIN32)
+    target_link_libraries(socketsl PUBLIC crypt32)
+endif()
+
+if(MSVC)
+    target_compile_options(socketsl PUBLIC /utf-8 /Zc:preprocessor)
+endif()
+
+if(WIN32)
+    target_compile_definitions(socketsl PUBLIC _WIN32_WINNT=0x0A00)
+endif()
+"""
+
+[target.server]
+type = "executable"
+sources = [
+    "server/src/main.cpp",
+    "server/src/connection/connection.cpp",
+    "server/src/connection/listener.cpp",
+]
+include-directories = ["server/src"]
+link-libraries = ["socketsl"]
+
+[target.client]
+type = "executable"
+sources = ["client/src/main.cpp"]
+include-directories = ["client/src"]
+link-libraries = ["socketsl"]

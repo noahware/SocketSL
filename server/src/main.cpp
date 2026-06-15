@@ -1,4 +1,4 @@
-#include <spdlog/spdlog.h>
+#include <log/log.hpp>
 
 #include "connection/listener.hpp"
 #include "network/socket.hpp"
@@ -18,7 +18,7 @@ std::int32_t main()
 {
 	try
 	{
-		spdlog::info("server");
+		LOG_INFO("server");
 
 		const auto client_ssl_context = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_server);
 
@@ -33,10 +33,8 @@ std::int32_t main()
 	}
 	catch (const std::exception& e)
 	{
-		spdlog::error(e.what());
+		LOG_ERR(e.what());
 	}
-
-	std::system("pause");
 
 	return 0;
 }

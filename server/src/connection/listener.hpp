@@ -1,7 +1,7 @@
 #pragma once
 #include "connection.hpp"
 
-#include <spdlog/spdlog.h>
+#include <log/log.hpp>
 
 namespace sl
 {
@@ -59,7 +59,7 @@ namespace sl
 					const auto remote_endpoint = asio_socket.remote_endpoint();
 					const auto endpoint_address = remote_endpoint.address();
 
-					spdlog::info("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
+					LOG_INFO("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
 
 					auto socket = std::make_unique<boost_tcp_socket>(io_context_, std::move(asio_socket), ssl_context_);
 					auto connection = std::make_shared<ConnectionT>(std::move(socket), this->shared_from_this());
@@ -68,7 +68,7 @@ namespace sl
 				}
 				else
 				{
-					spdlog::error(error_code.what());
+					LOG_ERR(error_code.what());
 				}
 
 				async_wait_for_connection();

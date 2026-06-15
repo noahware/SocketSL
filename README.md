@@ -204,6 +204,15 @@ client_listener->async_wait_for_connection();
 
 The project at the moment uses `mutual TLS with temporary dhparams` as an example, this is configured in the `set_up_ssl_context` functions in the client and server. This is purely an example of an SSL setup and the project supports many more SSL configurations.
 
+## Building
+
+Run the following commands from the project root directory to build in Release:
+
+```
+cmake -S . -B build
+cmake --build build --config Release
+```
+
 ## Key generation
 
 The following commands use `-days 730` to specify the validity of the certificates to be of 2 years and `-subj` to specify the certificate parameters. These should be changed adequately for production.

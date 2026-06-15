@@ -9,7 +9,7 @@ namespace sl::response
 {
 	void async_send_buffer(sl::socket& socket, const std::shared_ptr<std::vector<std::uint8_t>>& buffer, const async_callback_t& handler)
 	{
-		const request::request_buffer_size_t wire_buffer_size = static_cast<request::request_buffer_size_t>(buffer->size());
+		const request::request_buffer_size_t wire_buffer_size = endian::to_little(static_cast<request::request_buffer_size_t>(buffer->size()));
 
 		const auto wire_buffer_size_bytes = reinterpret_cast<const std::uint8_t*>(&wire_buffer_size);
 

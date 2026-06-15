@@ -1,6 +1,6 @@
 #include "socket.hpp"
 
-#include <spdlog/spdlog.h>
+#include <log/log.hpp>
 
 namespace sl
 {
@@ -20,7 +20,7 @@ namespace sl
 			{
 				if (!is_valid)
 				{
-					spdlog::error("failed to erase {} bytes from socket", size);
+					LOG_ERR("failed to erase {} bytes from socket", size);
 				}
 
 				handler(is_valid);
@@ -90,7 +90,7 @@ namespace sl
 
 				if (!is_valid)
 				{
-					spdlog::error(error_code.what());
+					LOG_ERR(error_code.what());
 				}
 
 				handler(is_valid);
@@ -116,7 +116,7 @@ namespace sl
 
 				if (!is_valid)
 				{
-					spdlog::error(error_code.what());
+					LOG_ERR(error_code.what());
 				}
 
 				handler(is_valid);
@@ -142,7 +142,7 @@ namespace sl
 
 				if (!is_valid)
 				{
-					spdlog::error(error_code.what());
+					LOG_ERR(error_code.what());
 				}
 
 				handler(is_valid);

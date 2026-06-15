@@ -2,7 +2,7 @@
 #include <response/response.hpp>
 #include <schema/response_generated.h>
 
-#include <spdlog/spdlog.h>
+#include <log/log.hpp>
 
 static void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
@@ -17,7 +17,7 @@ static void receive_test_response(sl::socket& socket)
 
 	const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
 
-	spdlog::info("test response key: 0x{:X}", test_response->key());
+	LOG_INFO("test response key: 0x{:X}", test_response->key());
 }
 
 static void set_up_ssl_context(sl::ssl_context& context)
@@ -36,7 +36,7 @@ static void connect_to_server(sl::socket& socket)
 	{
 		if (socket.handshake(sl::socket::handshake_type::client))
 		{
-			spdlog::info("handshake was successful");
+			LOG_INFO("handshake was successful");
 
 			constexpr std::uint64_t request_key = 0x12345;
 
@@ -46,12 +46,12 @@ static void connect_to_server(sl::socket& socket)
 		}
 		else
 		{
-			spdlog::error("failed to handshake");
+			LOG_ERR("failed to handshake");
 		}
 	}
 	else
 	{
-		spdlog::error("failed to connect to server");
+		LOG_ERR("failed to connect to server");
 	}
 }
 
@@ -59,7 +59,7 @@ std::int32_t main()
 {
 	try
 	{
-		spdlog::info("client");
+		LOG_INFO("client");
 
 		const auto io_context = std::make_shared<boost::asio::io_context>();
 		const auto ssl_ctx = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_client);
@@ -69,12 +69,10 @@ std::int32_t main()
 		sl::boost_tcp_socket sock(io_context, ssl_ctx);
 
 		connect_to_server(sock);
-
-		std::system("pause");
 	}
 	catch (const std::exception& e)
 	{
-		spdlog::error(e.what());
+		LOG_ERR(e.what());
 	}
 
 	return 0;
