@@ -20,15 +20,15 @@ namespace sl::request
 
 			request.header_size = request_header.size();
 		}
+	}
 
-		[[nodiscard]] request_t make_request_from_body(const request_id_t request_id, std::span<const std::uint8_t> request_body)
-		{
-			request_t request = { .header_size = 0, .buffer = {request_body.begin(), request_body.end()} };
+	request_t make_request_from_body(const request_id_t request_id, std::span<const std::uint8_t> request_body)
+	{
+		request_t request = { .header_size = 0, .buffer = {request_body.begin(), request_body.end()} };
 
-			add_header_to_request(request_id, request);
+		add_header_to_request(request_id, request);
 
-			return request;
-		}
+		return request;
 	}
 
 	void send_buffer(sl::socket& socket, const std::span<const std::uint8_t> buffer, const std::size_t header_size)
@@ -41,12 +41,5 @@ namespace sl::request
 	std::vector<std::uint8_t> make_request_header(const request_id_t request_id, const std::size_t body_size)
 	{
 		return serialisation::serialise(CREATION_WRAPPER(CreateRequestHeader), request_id, body_size);
-	}
-
-	request_t make_test_request(const std::uint64_t key)
-	{
-		const std::vector<std::uint8_t> request_body = serialisation::serialise(CREATION_WRAPPER(Client::CreateTestRequest), key);
-
-		return make_request_from_body(Client::RequestId_Test, request_body);
 	}
 }

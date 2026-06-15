@@ -1,7 +1,5 @@
 #include "response.hpp"
 #include "../request/request_def.hpp"
-#include <schema/response_generated.h>
-#include <schema/schema.hpp>
 
 #include "../endian/endian.hpp"
 
@@ -34,10 +32,5 @@ namespace sl::response
 		buffer.resize(buffer_size);
 
 		(void)socket.read(buffer);
-	}
-
-	std::vector<std::uint8_t> make_test_response(const std::uint64_t key)
-	{
-		return serialisation::serialise(CREATION_WRAPPER(Client::CreateTestResponse), key);
 	}
 }

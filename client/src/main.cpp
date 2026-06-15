@@ -1,5 +1,7 @@
 #include <request/request.hpp>
 #include <response/response.hpp>
+#include <schema/schema.hpp>
+#include <schema/request_generated.h>
 #include <schema/response_generated.h>
 
 #include <log/log.hpp>
@@ -8,9 +10,7 @@ namespace
 {
 	void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 	{
-		const auto [request_header_size, request_buffer] = sl::request::make_test_request(request_key);
-
-		sl::request::send_buffer(socket, request_buffer, request_header_size);
+		sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
 	}
 
 	void receive_test_response(sl::socket& socket)

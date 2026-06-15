@@ -9,9 +9,7 @@ A modern C++ client-server model built using SSL sockets.
 ```cpp
 void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
-	const auto [request_header_size, request_buffer] = sl::request::make_test_request(request_key);
-
-	sl::request::send_buffer(socket, request_buffer, request_header_size);
+	sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
 }
 
 void receive_test_response(sl::socket& socket)
@@ -20,7 +18,7 @@ void receive_test_response(sl::socket& socket)
 
 	const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
 
-	spdlog::info("test response key: 0x{:X}", test_response->key());
+	LOG_INFO("test response key: 0x{:X}", test_response->key());
 }
 
 void connect_to_server(sl::socket& socket)
@@ -42,33 +40,38 @@ void connect_to_server(sl::socket& socket)
 ## Server
 
 ```cpp
-void handle_valid_test_request(sl::socket& socket, const Client::TestRequest* const request_body)
+void handle_valid_test_request(const std::shared_ptr<sl::connection>& connection, const Client::TestRequest* const request_body)
 {
-	constexpr std::uint64_t response_key = 0x56789;
-	const auto response_body = std::make_shared<std::vector<std::uint8_t>>(sl::response::make_test_response(response_key));
+	LOG_INFO("test request key: 0x{:X}", request_body->key());
 
-	sl::response::async_send_buffer(socket, response_body,
-		[response_key](const bool is_valid)
+	constexpr std::uint64_t response_key = 0x56789;
+
+	const auto response_body = std::make_shared<std::vector<std::uint8_t>>(
+		sl::response::make_response(CREATION_WRAPPER(Client::CreateTestResponse), response_key));
+
+	sl::response::async_send_buffer(connection->socket(), response_body,
+		[](const bool is_valid)
 		{
 			if (is_valid)
 			{
-				spdlog::info("successfully sent test response (key: 0x{:X})", response_key);
+				LOG_INFO("successfully sent response");
 			}
 		}
 	);
 }
 
+constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+
 void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
 {
-	if (request_id == Client::RequestId_Test)
-	{
-		if (sl::serialisation::is_valid<Client::TestRequest>(*body_buffer))
-		{
-			const auto* request_body = sl::serialisation::deserialise<Client::TestRequest>(*body_buffer);
+	const auto self = shared_from_this();
 
-			handle_valid_test_request(*socket_, request_body);
-		}
+	if (test_request.process(request_id, self, *body_buffer))
+	{
+		return;
 	}
+
+	LOG_ERR("unknown request type: {}", request_id);
 }
 ```
 
@@ -136,52 +139,44 @@ template <class CreateFn, class ...Args>
 std::vector<std::uint8_t> serialise(const CreateFn& create_fn, Args&&... args)
 ```
 
-This serialisation routine can be used as such:
+Generic templates wrap serialisation for requests and responses, so you never call `serialise` directly:
 
 ```cpp
-sl::request::request_t sl::request::make_test_request(const std::uint64_t key)
-{
-	const std::vector<std::uint8_t> request_body = serialisation::serialise(CREATION_WRAPPER(Client::CreateTestRequest), key);
+// client: send a request in one call
+sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
 
-	/* return header + body */
-}
+// server: build a response body
+auto body = sl::response::make_response(CREATION_WRAPPER(Client::CreateTestResponse), key);
 ```
-
-That raw byte buffer can then be sent to the peer for processing.
 
 ## Server connections/requests
 
 The server holds a base `sl::connection` class which implements all of the request header / body parsing, all it requires the developer to implement is the `handle_request` routine:
 
 ```cpp
-virtual void handle_request(sl::request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) = 0;
+virtual void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) = 0;
 ```
 
-You may define different types of connections as such:
+Use `sl::request::request_info` to declare constexpr handler descriptors that bundle the request ID, FlatBuffer type, and handler function pointer. The `process` method validates, deserialises, and dispatches in one call:
 
 ```cpp
-namespace sl
+void handle_valid_test_request(const std::shared_ptr<sl::connection>& conn, const Client::TestRequest* body)
 {
-	class client_connection final : public connection
+	/* act on body, send response */
+}
+
+constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+
+void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
+{
+	const auto self = shared_from_this();
+
+	if (test_request.process(request_id, self, *body_buffer))
 	{
-	public:
-		explicit client_connection(std::unique_ptr<sl::socket> socket, std::shared_ptr<connection_listener> parent_listener)
-			: connection(std::move(socket), std::move(parent_listener)) {}
+		return;
+	}
 
-	protected:
-		void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) override
-		{
-			if (request_id == Client::RequestId_Test)
-			{
-				if (serialisation::is_valid<Client::TestRequest>(*body_buffer))
-				{
-					const auto* request_body = serialisation::deserialise<Client::TestRequest>(*body_buffer);
-
-					/* act on request_body */
-				}
-			}
-		}
-	};
+	LOG_ERR("unknown request type: {}", request_id);
 }
 ```
 

@@ -17,5 +17,9 @@ namespace sl::response
 		return serialisation::deserialise<T>(buffer);
 	}
 
-	[[nodiscard]] std::vector<std::uint8_t> make_test_response(std::uint64_t key);
+	template <class CreateFn, class... Args>
+	[[nodiscard]] std::vector<std::uint8_t> make_response(CreateFn&& create_fn, Args&&... args)
+	{
+		return serialisation::serialise(std::forward<CreateFn>(create_fn), std::forward<Args>(args)...);
+	}
 }

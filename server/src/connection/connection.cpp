@@ -2,9 +2,12 @@
 #include "listener.hpp"
 #include <serialisation/serialisation.hpp>
 #include <response/response.hpp>
+#include <request/request_handler.hpp>
 #include <endian/endian.hpp>
+#include <schema/schema.hpp>
 
 #include <schema/request_generated.h>
+#include <schema/response_generated.h>
 
 namespace sl
 {
@@ -146,31 +149,24 @@ namespace sl
 
 			constexpr std::uint64_t response_key = 0x56789;
 
-			const auto response_body = std::make_shared<std::vector<std::uint8_t>>(response::make_test_response(response_key));
+			const auto response_body = std::make_shared<std::vector<std::uint8_t>>(
+				response::make_response(CREATION_WRAPPER(Client::CreateTestResponse), response_key));
 
 			send_response(connection, response_body);
 		}
+
+		constexpr request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
 	}
 
 	void client_connection::handle_request(const request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
 	{
-		if (request_id == Client::RequestId_Test)
-		{
-			if (serialisation::is_valid<Client::TestRequest>(*body_buffer))
-			{
-				const auto* request_body = serialisation::deserialise<Client::TestRequest>(*body_buffer);
-				const auto shared_this = this->shared_from_this();
+		const auto self = this->shared_from_this();
 
-				handle_valid_test_request(shared_this, request_body);
-			}
-			else
-			{
-				LOG_ERR("failed to verify test request body validity");
-			}
-		}
-		else
+		if (test_request.process(request_id, self, *body_buffer))
 		{
-			LOG_ERR("unknown request type");
+			return;
 		}
+
+		LOG_ERR("unknown request type: {}", request_id);
 	}
 }
