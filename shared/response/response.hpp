@@ -1,6 +1,7 @@
 #pragma once
 #include "../network/socket.hpp"
 #include "../serialisation/serialisation.hpp"
+
 #include <vector>
 
 namespace sl::response

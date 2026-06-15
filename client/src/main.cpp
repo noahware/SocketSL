@@ -4,54 +4,57 @@
 
 #include <log/log.hpp>
 
-static void send_test_request(sl::socket& socket, const std::uint64_t request_key)
+namespace
 {
-	const auto [request_header_size, request_buffer] = sl::request::make_test_request(request_key);
-
-	sl::request::send_buffer(socket, request_buffer, request_header_size);
-}
-
-static void receive_test_response(sl::socket& socket)
-{
-	std::vector<std::uint8_t> response_buffer = { };
-
-	const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
-
-	LOG_INFO("test response key: 0x{:X}", test_response->key());
-}
-
-static void set_up_ssl_context(sl::ssl_context& context)
-{
-	context.require_peer_verification();
-
-	context.load_verify_file("certificate_authority.pem");
-	context.use_certificate("client_certificate.pem", sl::ssl_context::crypto_file_format::pem);
-	context.use_private_key("client_private_key.pem", sl::ssl_context::crypto_file_format::pem);
-	context.use_tmp_dh_file("dhparams.pem");
-}
-
-static void connect_to_server(sl::socket& socket)
-{
-	if (socket.connect("127.0.0.1", "2457"))
+	void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 	{
-		if (socket.handshake(sl::socket::handshake_type::client))
+		const auto [request_header_size, request_buffer] = sl::request::make_test_request(request_key);
+
+		sl::request::send_buffer(socket, request_buffer, request_header_size);
+	}
+
+	void receive_test_response(sl::socket& socket)
+	{
+		std::vector<std::uint8_t> response_buffer = { };
+
+		const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
+
+		LOG_INFO("test response key: 0x{:X}", test_response->key());
+	}
+
+	void set_up_ssl_context(sl::ssl_context& context)
+	{
+		context.require_peer_verification();
+
+		context.load_verify_file("certificate_authority.pem");
+		context.use_certificate("client_certificate.pem", sl::ssl_context::crypto_file_format::pem);
+		context.use_private_key("client_private_key.pem", sl::ssl_context::crypto_file_format::pem);
+		context.use_tmp_dh_file("dhparams.pem");
+	}
+
+	void connect_to_server(sl::socket& socket)
+	{
+		if (socket.connect("127.0.0.1", "2457"))
 		{
-			LOG_INFO("handshake was successful");
+			if (socket.handshake(sl::socket::handshake_type::client))
+			{
+				LOG_INFO("handshake was successful");
 
-			constexpr std::uint64_t request_key = 0x12345;
+				constexpr std::uint64_t request_key = 0x12345;
 
-			send_test_request(socket, request_key);
+				send_test_request(socket, request_key);
 
-			receive_test_response(socket);
+				receive_test_response(socket);
+			}
+			else
+			{
+				LOG_ERR("failed to handshake");
+			}
 		}
 		else
 		{
-			LOG_ERR("failed to handshake");
+			LOG_ERR("failed to connect to server");
 		}
-	}
-	else
-	{
-		LOG_ERR("failed to connect to server");
 	}
 }
 

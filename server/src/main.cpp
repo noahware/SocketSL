@@ -3,15 +3,18 @@
 #include "connection/listener.hpp"
 #include "network/socket.hpp"
 
-static void set_up_ssl_context(sl::ssl_context& context)
+namespace
 {
-	context.require_peer_verification();
+	void set_up_ssl_context(sl::ssl_context& context)
+	{
+		context.require_peer_verification();
 
-	context.load_verify_file("certificate_authority.pem");
-	context.use_certificate("server_certificate.pem", sl::ssl_context::crypto_file_format::pem);
-	context.use_private_key("server_private_key.pem", sl::ssl_context::crypto_file_format::pem);
+		context.load_verify_file("certificate_authority.pem");
+		context.use_certificate("server_certificate.pem", sl::ssl_context::crypto_file_format::pem);
+		context.use_private_key("server_private_key.pem", sl::ssl_context::crypto_file_format::pem);
 
-	context.use_tmp_dh_file("dhparams.pem");
+		context.use_tmp_dh_file("dhparams.pem");
+	}
 }
 
 std::int32_t main()

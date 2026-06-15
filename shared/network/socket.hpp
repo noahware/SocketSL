@@ -3,6 +3,9 @@
 
 #include "ssl.hpp"
 
+#include <span>
+#include <type_traits>
+
 namespace sl
 {
 	using async_callback_t = std::function<void(bool is_valid)>;
@@ -29,37 +32,27 @@ namespace sl
 		void erase(std::size_t size);
 		void async_erase(std::size_t size, const async_callback_t& handler);
 
-		[[nodiscard]] virtual bool read(void* buffer, std::size_t size) = 0;
-		virtual void async_read(void* buffer, std::size_t size, const async_callback_t& handler) = 0;
+		[[nodiscard]] virtual bool read(std::span<std::uint8_t> buffer) = 0;
+		virtual void async_read(std::span<std::uint8_t> buffer, const async_callback_t& handler) = 0;
 
-		[[nodiscard]] virtual bool write(const void* buffer, std::size_t size) = 0;
-		virtual void async_write(const void* buffer, std::size_t size, const async_callback_t& handler) = 0;
+		[[nodiscard]] virtual bool write(std::span<const std::uint8_t> buffer) = 0;
+		virtual void async_write(std::span<const std::uint8_t> buffer, const async_callback_t& handler) = 0;
 
-		[[nodiscard]] virtual std::uint32_t ipv4_address() = 0;
-		[[nodiscard]] virtual std::uint16_t port() = 0;
+		[[nodiscard]] virtual std::uint32_t ipv4_address() const = 0;
+		[[nodiscard]] virtual std::uint16_t port() const = 0;
 
 		template <class T>
+			requires std::is_trivially_copyable_v<T>
 		[[nodiscard]] bool read(T& value)
 		{
-			return this->read(&value, sizeof(value));
+			return this->read({reinterpret_cast<std::uint8_t*>(&value), sizeof(T)});
 		}
 
 		template <class T>
-		void async_read(T& value, const async_callback_t& handler)
-		{
-			this->async_read(&value, sizeof(value), handler);
-		}
-
-		template <class T>
+			requires std::is_trivially_copyable_v<T>
 		[[nodiscard]] bool write(T value)
 		{
-			return this->write(&value, sizeof(value));
-		}
-
-		template <class T>
-		void async_write(T value, const async_callback_t& handler)
-		{
-			this->async_write(&value, sizeof(value), handler);
+			return this->write({reinterpret_cast<const std::uint8_t*>(&value), sizeof(T)});
 		}
 	};
 
@@ -91,14 +84,14 @@ namespace sl
 		bool handshake(handshake_type type) override;
 		void async_handshake(handshake_type type, const async_callback_t& handler) override;
 
-		bool read(void* buffer, std::size_t size) override;
-		void async_read(void* buffer, std::size_t size, const async_callback_t& handler) override;
+		bool read(std::span<std::uint8_t> buffer) override;
+		void async_read(std::span<std::uint8_t> buffer, const async_callback_t& handler) override;
 
-		bool write(const void* buffer, std::size_t size) override;
-		void async_write(const void* buffer, std::size_t size, const async_callback_t& handler) override;
+		bool write(std::span<const std::uint8_t> buffer) override;
+		void async_write(std::span<const std::uint8_t> buffer, const async_callback_t& handler) override;
 
-		std::uint32_t ipv4_address() override;
-		std::uint16_t port() override;
+		std::uint32_t ipv4_address() const override;
+		std::uint16_t port() const override;
 
 	protected:
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;

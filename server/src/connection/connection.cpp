@@ -42,7 +42,7 @@ namespace sl
 	{
 		auto header_size = std::make_shared<request::request_buffer_size_t>();
 
-		socket_->async_read(header_size.get(), sizeof(request::request_buffer_size_t),
+		socket_->async_read({reinterpret_cast<std::uint8_t*>(header_size.get()), sizeof(request::request_buffer_size_t)},
 			[this, header_size](const bool is_valid)
 			{
 				if (is_valid)
@@ -63,7 +63,7 @@ namespace sl
 	{
 		auto header_buffer = std::make_shared<std::vector<std::uint8_t>>(header_size);
 
-		socket_->async_read(header_buffer->data(), header_size,
+		socket_->async_read(*header_buffer,
 			[this, header_buffer, header_size](const bool is_valid)
 			{
 				if (is_valid)
@@ -100,7 +100,7 @@ namespace sl
 	{
 		auto body_buffer = std::make_shared<std::vector<std::uint8_t>>(body_size);
 
-		socket_->async_read(body_buffer->data(), body_size,
+		socket_->async_read(*body_buffer,
 			[this, request_id, body_buffer](const bool is_valid)
 			{
 				if (is_valid)
@@ -121,32 +121,35 @@ namespace sl
 		);
 	}
 
-	static void send_response(const std::shared_ptr<connection>& connection, const std::shared_ptr<std::vector<std::uint8_t>>& response_body)
+	namespace
 	{
-		response::async_send_buffer(connection->socket(), response_body,
-			[connection](const bool is_valid)
-			{
-				if (is_valid)
+		void send_response(const std::shared_ptr<connection>& connection, const std::shared_ptr<std::vector<std::uint8_t>>& response_body)
+		{
+			response::async_send_buffer(connection->socket(), response_body,
+				[connection](const bool is_valid)
 				{
-					LOG_INFO("successfully sent response");
+					if (is_valid)
+					{
+						LOG_INFO("successfully sent response");
+					}
+					else
+					{
+						LOG_ERR("failed to send response");
+					}
 				}
-				else
-				{
-					LOG_ERR("failed to send response");
-				}
-			}
-		);
-	}
+			);
+		}
 
-	static void handle_valid_test_request(const std::shared_ptr<connection>& connection, const Client::TestRequest* const request_body)
-	{
-		LOG_INFO("test request key: 0x{:X}", request_body->key());
+		void handle_valid_test_request(const std::shared_ptr<connection>& connection, const Client::TestRequest* const request_body)
+		{
+			LOG_INFO("test request key: 0x{:X}", request_body->key());
 
-		constexpr std::uint64_t response_key = 0x56789;
+			constexpr std::uint64_t response_key = 0x56789;
 
-		const auto response_body = std::make_shared<std::vector<std::uint8_t>>(response::make_test_response(response_key));
+			const auto response_body = std::make_shared<std::vector<std::uint8_t>>(response::make_test_response(response_key));
 
-		send_response(connection, response_body);
+			send_response(connection, response_body);
+		}
 	}
 
 	void client_connection::handle_request(const request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)

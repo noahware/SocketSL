@@ -15,11 +15,9 @@ namespace sl::response
 
 		buffer->insert(buffer->begin(), wire_buffer_size_bytes, wire_buffer_size_bytes + sizeof(wire_buffer_size));
 
-		socket.async_write(buffer->data(), buffer->size(),
+		socket.async_write(*buffer,
 			[handler, buffer](const bool is_valid)
 			{
-				(void)buffer;
-
 				handler(is_valid);
 			}
 		);
@@ -35,7 +33,7 @@ namespace sl::response
 
 		buffer.resize(buffer_size);
 
-		(void)socket.read(buffer.data(), buffer_size);
+		(void)socket.read(buffer);
 	}
 
 	std::vector<std::uint8_t> make_test_response(const std::uint64_t key)

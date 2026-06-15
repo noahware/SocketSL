@@ -11,7 +11,7 @@ namespace sl::request
 	// kept _t suffix: `request` would shadow the enclosing namespace
 	struct request_t
 	{
-		std::size_t header_size;
-		std::vector<std::uint8_t> buffer;
+		std::size_t header_size = 0;
+		std::vector<std::uint8_t> buffer = {};
 	};
 }

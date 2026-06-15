@@ -6,7 +6,7 @@
 
 namespace sl::serialisation
 {
-	[[nodiscard]] static std::vector<std::uint8_t> builder_to_vector(const flatbuffers::FlatBufferBuilder& builder)
+	[[nodiscard]] inline std::vector<std::uint8_t> builder_to_vector(const flatbuffers::FlatBufferBuilder& builder)
 	{
 		const std::uint8_t* const buffer = builder.GetBufferPointer();
 		const std::size_t buffer_size = builder.GetSize();
@@ -15,7 +15,7 @@ namespace sl::serialisation
 	}
 
 	template <class CreateFn, class ...Args>
-	[[nodiscard]] static std::vector<std::uint8_t> serialise(flatbuffers::FlatBufferBuilder& builder, const CreateFn& create_fn, Args&&... args)
+	[[nodiscard]] std::vector<std::uint8_t> serialise(flatbuffers::FlatBufferBuilder& builder, const CreateFn& create_fn, Args&&... args)
 	{
 		const auto request_header = create_fn(builder, std::forward<Args>(args)...);
 
@@ -25,7 +25,7 @@ namespace sl::serialisation
 	}
 
 	template <class CreateFn, class ...Args>
-	[[nodiscard]] static std::vector<std::uint8_t> serialise(const CreateFn& create_fn, Args&&... args)
+	[[nodiscard]] std::vector<std::uint8_t> serialise(const CreateFn& create_fn, Args&&... args)
 	{
 		flatbuffers::FlatBufferBuilder builder;
 
@@ -33,28 +33,16 @@ namespace sl::serialisation
 	}
 
 	template <class T>
-	[[nodiscard]] static const T* deserialise(const void* const buffer) noexcept
+	[[nodiscard]] const T* deserialise(std::span<const std::uint8_t> buffer) noexcept
 	{
-		return flatbuffers::GetRoot<T>(buffer);
+		return flatbuffers::GetRoot<T>(buffer.data());
 	}
 
 	template <class T>
-	[[nodiscard]] static const T* deserialise(const std::span<std::uint8_t> buffer) noexcept
+	[[nodiscard]] bool is_valid(std::span<const std::uint8_t> buffer)
 	{
-		return deserialise<T>(buffer.data());
-	}
-
-	template <class T>
-	[[nodiscard]] static bool is_valid(const void* const buffer, const std::size_t buffer_size)
-	{
-		flatbuffers::Verifier verifier(static_cast<const std::uint8_t*>(buffer), buffer_size);
+		flatbuffers::Verifier verifier(buffer.data(), buffer.size());
 
 		return verifier.VerifyBuffer<T>(nullptr);
-	}
-
-	template <class T>
-	[[nodiscard]] static bool is_valid(const std::span<std::uint8_t> buffer)
-	{
-		return is_valid<T>(buffer.data(), buffer.size());
 	}
 }

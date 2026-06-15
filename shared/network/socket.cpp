@@ -8,15 +8,15 @@ namespace sl
 	{
 		auto dummy_buffer = std::vector<std::uint8_t>(size);
 
-		(void)read(dummy_buffer.data(), size);
+		(void)read(dummy_buffer);
 	}
 
 	void socket::async_erase(const std::size_t size, const async_callback_t& handler)
 	{
 		const auto dummy_buffer = std::make_shared<std::vector<std::uint8_t>>(size);
 
-		async_read(dummy_buffer->data(), size,
-			[this, handler, size](const bool is_valid)
+		async_read(*dummy_buffer,
+			[handler, size, dummy_buffer](const bool is_valid)
 			{
 				if (!is_valid)
 				{
@@ -60,8 +60,6 @@ namespace sl
 
 	void boost_tcp_socket::close()
 	{
-		//stream_->shutdown();
-
 		auto& lowest_layer = stream_->lowest_layer();
 
 		lowest_layer.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
@@ -98,18 +96,18 @@ namespace sl
 		);
 	}
 
-	bool boost_tcp_socket::read(void* const buffer, const std::size_t size)
+	bool boost_tcp_socket::read(const std::span<std::uint8_t> buffer)
 	{
 		boost::system::error_code error_code = { };
 
-		boost::asio::read(*stream_, boost::asio::buffer(buffer, size), error_code);
+		boost::asio::read(*stream_, boost::asio::buffer(buffer.data(), buffer.size()), error_code);
 
 		return !error_code;
 	}
 
-	void boost_tcp_socket::async_read(void* const buffer, const std::size_t size, const async_callback_t& handler)
+	void boost_tcp_socket::async_read(const std::span<std::uint8_t> buffer, const async_callback_t& handler)
 	{
-		boost::asio::async_read(*stream_, boost::asio::buffer(buffer, size),
+		boost::asio::async_read(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
 			[handler](const boost::system::error_code& error_code, const std::size_t)
 			{
 				const bool is_valid = !error_code;
@@ -124,18 +122,18 @@ namespace sl
 		);
 	}
 
-	bool boost_tcp_socket::write(const void* const buffer, const std::size_t size)
+	bool boost_tcp_socket::write(const std::span<const std::uint8_t> buffer)
 	{
 		boost::system::error_code error_code = { };
 
-		boost::asio::write(*stream_, boost::asio::buffer(buffer, size), error_code);
+		boost::asio::write(*stream_, boost::asio::buffer(buffer.data(), buffer.size()), error_code);
 
 		return !error_code;
 	}
 
-	void boost_tcp_socket::async_write(const void* const buffer, const std::size_t size, const async_callback_t& handler)
+	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> buffer, const async_callback_t& handler)
 	{
-		boost::asio::async_write(*stream_, boost::asio::buffer(buffer, size),
+		boost::asio::async_write(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
 			[handler](const boost::system::error_code& error_code, const std::size_t)
 			{
 				const bool is_valid = !error_code;
@@ -150,7 +148,7 @@ namespace sl
 		);
 	}
 
-	std::uint32_t boost_tcp_socket::ipv4_address()
+	std::uint32_t boost_tcp_socket::ipv4_address() const
 	{
 		const asio_endpoint_type remote = remote_endpoint();
 		const auto address = remote.address();
@@ -159,7 +157,7 @@ namespace sl
 		return ipv4.to_uint();
 	}
 
-	std::uint16_t boost_tcp_socket::port()
+	std::uint16_t boost_tcp_socket::port() const
 	{
 		const asio_endpoint_type endpoint = local_endpoint();
 
