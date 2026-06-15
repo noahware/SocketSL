@@ -4,37 +4,37 @@
 
 #include <spdlog/spdlog.h>
 
-void send_test_request(socket_t& socket, const std::uint64_t request_key)
+static void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
-	const auto [request_header_size, request_buffer] = request::construct::make_test_request(request_key);
+	const auto [request_header_size, request_buffer] = sl::request::make_test_request(request_key);
 
-	request::send_buffer(socket, request_buffer, request_header_size);
+	sl::request::send_buffer(socket, request_buffer, request_header_size);
 }
 
-void receive_test_response(socket_t& socket)
+static void receive_test_response(sl::socket& socket)
 {
 	std::vector<std::uint8_t> response_buffer = { };
 
-	const auto test_response = response::read_response<Client::TestResponse>(socket, response_buffer);
+	const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
 
 	spdlog::info("test response key: 0x{:X}", test_response->key());
 }
 
-static void set_up_ssl_context(ssl_context_t& ssl_context)
+static void set_up_ssl_context(sl::ssl_context& context)
 {
-	ssl_context.require_peer_verification();
+	context.require_peer_verification();
 
-	ssl_context.load_verify_file("certificate_authority.pem");
-	ssl_context.use_certificate("client_certificate.pem", ssl_context_t::crypto_file_format_t::pem);
-	ssl_context.use_private_key("client_private_key.pem", ssl_context_t::crypto_file_format_t::pem);
-	ssl_context.use_tmp_dh_file("dhparams.pem");
+	context.load_verify_file("certificate_authority.pem");
+	context.use_certificate("client_certificate.pem", sl::ssl_context::crypto_file_format::pem);
+	context.use_private_key("client_private_key.pem", sl::ssl_context::crypto_file_format::pem);
+	context.use_tmp_dh_file("dhparams.pem");
 }
 
-static void connect_to_server(socket_t& socket)
+static void connect_to_server(sl::socket& socket)
 {
 	if (socket.connect("127.0.0.1", "2457"))
 	{
-		if (socket.handshake(socket_t::handshake_type_t::client))
+		if (socket.handshake(sl::socket::handshake_type::client))
 		{
 			spdlog::info("handshake was successful");
 
@@ -62,13 +62,13 @@ std::int32_t main()
 		spdlog::info("client");
 
 		const auto io_context = std::make_shared<boost::asio::io_context>();
-		const auto ssl_context = std::make_shared<boost_ssl_context_t>(boost_ssl_context_t::ssl_method_t::tlsv12_client);
+		const auto ssl_ctx = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_client);
 
-		set_up_ssl_context(*ssl_context);
+		set_up_ssl_context(*ssl_ctx);
 
-		boost_tcp_socket_t socket(io_context, ssl_context);
+		sl::boost_tcp_socket sock(io_context, ssl_ctx);
 
-		connect_to_server(socket);
+		connect_to_server(sock);
 
 		std::system("pause");
 	}

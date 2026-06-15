@@ -3,15 +3,15 @@
 #include "connection/listener.hpp"
 #include "network/socket.hpp"
 
-static void set_up_ssl_context(ssl_context_t& ssl_context)
+static void set_up_ssl_context(sl::ssl_context& context)
 {
-	ssl_context.require_peer_verification();
+	context.require_peer_verification();
 
-	ssl_context.load_verify_file("certificate_authority.pem");
-	ssl_context.use_certificate("server_certificate.pem", ssl_context_t::crypto_file_format_t::pem);
-	ssl_context.use_private_key("server_private_key.pem", ssl_context_t::crypto_file_format_t::pem);
+	context.load_verify_file("certificate_authority.pem");
+	context.use_certificate("server_certificate.pem", sl::ssl_context::crypto_file_format::pem);
+	context.use_private_key("server_private_key.pem", sl::ssl_context::crypto_file_format::pem);
 
-	ssl_context.use_tmp_dh_file("dhparams.pem");
+	context.use_tmp_dh_file("dhparams.pem");
 }
 
 std::int32_t main()
@@ -20,12 +20,12 @@ std::int32_t main()
 	{
 		spdlog::info("server");
 
-		const auto client_ssl_context = std::make_shared<boost_ssl_context_t>(boost_ssl_context_t::ssl_method_t::tlsv12_server);
+		const auto client_ssl_context = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_server);
 
 		set_up_ssl_context(*client_ssl_context);
 
 		const auto io_context = std::make_shared<boost::asio::io_context>();
-		const auto client_listener = std::make_shared<boost_connection_listener_t<client_connection_t>>(io_context, client_ssl_context, 2457);
+		const auto client_listener = std::make_shared<sl::boost_connection_listener<sl::client_connection>>(io_context, client_ssl_context, 2457);
 
 		client_listener->async_wait_for_connection();
 

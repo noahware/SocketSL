@@ -1,32 +1,35 @@
 #include "listener.hpp"
 
-void connection_listener_t::add_connection(std::shared_ptr<connection_t> connection)
+namespace sl
 {
-	connection->async_handshake(socket_t::handshake_type_t::server,
-		[this, connection](const std::uint8_t is_valid)
-		{
-			if (is_valid)
+	void connection_listener::add_connection(std::shared_ptr<connection> connection)
+	{
+		connection->async_handshake(sl::socket::handshake_type::server,
+			[this, connection](const bool is_valid)
 			{
-				spdlog::info("handshake was successful");
+				if (is_valid)
+				{
+					spdlog::info("handshake was successful");
 
-				connections_.push_back(connection);
+					connections_.push_back(connection);
 
-				connection->await_request();
+					connection->await_request();
+				}
+				else
+				{
+					spdlog::error("failed to handshake");
+				}
 			}
-			else
+		);
+	}
+
+	void connection_listener::remove_connection(connection* const connection)
+	{
+		std::erase_if(connections_,
+			[connection](const std::shared_ptr<sl::connection>& entry)
 			{
-				spdlog::error("failed to handshake");
+				return entry.get() == connection;
 			}
-		}
-	);
-}
-
-void connection_listener_t::remove_connection(connection_t* const connection)
-{
-	std::erase_if(connections_,
-		[connection](const std::shared_ptr<connection_t>& entry)
-		{
-			return entry.get() == connection;
-		}
-	);
+		);
+	}
 }

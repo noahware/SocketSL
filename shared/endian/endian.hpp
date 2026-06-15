@@ -1,16 +1,16 @@
 #pragma once
 #include <boost/endian/conversion.hpp>
 
-namespace endian
+namespace sl::endian
 {
-	template <class t>
-	t to_little(t x)
+	template <class T>
+	[[nodiscard]] T to_little(T x) noexcept
 	{
 		return boost::endian::little_to_native(x);
 	}
 
-	template <class t>
-	t from_little(t x)
+	template <class T>
+	[[nodiscard]] T from_little(T x) noexcept
 	{
 		return boost::endian::native_to_little(x);
 	}

@@ -3,115 +3,112 @@
 
 #include "ssl.hpp"
 
-typedef std::function<void(std::uint8_t is_valid)> async_callback_t;
-
-class socket_t
+namespace sl
 {
-public:
-	enum class handshake_type_t : std::uint8_t
+	using async_callback_t = std::function<void(bool is_valid)>;
+
+	class socket
 	{
-		client,
-		server
+	public:
+		enum class handshake_type : std::uint8_t
+		{
+			client,
+			server
+		};
+
+		socket() = default;
+		virtual ~socket() = default;
+
+		[[nodiscard]] virtual bool connect(std::string_view host, std::string_view service) = 0;
+		[[nodiscard]] virtual bool connect(std::uint32_t ipv4_address, std::uint16_t port) = 0;
+		virtual void close() = 0;
+
+		[[nodiscard]] virtual bool handshake(handshake_type type) = 0;
+		virtual void async_handshake(handshake_type type, const async_callback_t& handler) = 0;
+
+		void erase(std::size_t size);
+		void async_erase(std::size_t size, const async_callback_t& handler);
+
+		[[nodiscard]] virtual bool read(void* buffer, std::size_t size) = 0;
+		virtual void async_read(void* buffer, std::size_t size, const async_callback_t& handler) = 0;
+
+		[[nodiscard]] virtual bool write(const void* buffer, std::size_t size) = 0;
+		virtual void async_write(const void* buffer, std::size_t size, const async_callback_t& handler) = 0;
+
+		[[nodiscard]] virtual std::uint32_t ipv4_address() = 0;
+		[[nodiscard]] virtual std::uint16_t port() = 0;
+
+		template <class T>
+		[[nodiscard]] bool read(T& value)
+		{
+			return this->read(&value, sizeof(value));
+		}
+
+		template <class T>
+		void async_read(T& value, const async_callback_t& handler)
+		{
+			this->async_read(&value, sizeof(value), handler);
+		}
+
+		template <class T>
+		[[nodiscard]] bool write(T value)
+		{
+			return this->write(&value, sizeof(value));
+		}
+
+		template <class T>
+		void async_write(T value, const async_callback_t& handler)
+		{
+			this->async_write(&value, sizeof(value), handler);
+		}
 	};
 
-	socket_t() = default;
-	virtual ~socket_t() = default;
-
-	virtual std::uint8_t connect(const std::string_view& host, const std::string_view& service) = 0;
-	virtual std::uint8_t connect(std::uint32_t ipv4_address, std::uint16_t port) = 0;
-	virtual void close() = 0;
-
-	virtual std::uint8_t handshake(handshake_type_t type) = 0;
-	virtual void async_handshake(handshake_type_t type, const async_callback_t& handler) = 0;
-
-	void erase(std::uint64_t size);
-	void async_erase(std::uint64_t size, const async_callback_t& handler);
-
-	virtual std::uint8_t read(void* buffer, std::uint64_t size) = 0;
-	virtual void async_read(void* buffer, std::uint64_t size, const async_callback_t& handler) = 0;
-
-	virtual std::uint8_t write(const void* buffer, std::uint64_t size) = 0;
-	virtual void async_write(const void* buffer, std::uint64_t size, const async_callback_t& handler) = 0;
-
-	[[nodiscard]] virtual std::uint32_t ipv4_address() = 0;
-	[[nodiscard]] virtual std::uint16_t port() = 0;
-
-	template <class t>
-	std::uint8_t read(t& value)
+	class boost_tcp_socket final : public socket
 	{
-		const std::uint8_t status = this->read(&value, sizeof(value));
+	public:
+		using asio_context_type = boost::asio::io_context;
+		using resolver_type = boost::asio::ip::tcp::resolver;
+		using asio_socket_type = boost::asio::ip::tcp::socket;
+		using asio_stream_type = boost::asio::ssl::stream<asio_socket_type>;
+		using asio_handshake_type = boost::asio::ssl::stream_base::handshake_type;
+		using asio_endpoint_type = asio_socket_type::endpoint_type;
 
-		return status;
-	}
+		explicit boost_tcp_socket(std::shared_ptr<asio_context_type> io_context, std::shared_ptr<boost_ssl_context> ssl_context)
+			:	io_context_(std::move(io_context)),
+				ssl_context_(std::move(ssl_context)),
+				stream_(std::make_unique<asio_stream_type>(*io_context_, ssl_context_->native_handle())) {}
 
-	template <class t>
-	void async_read(t& value, const async_callback_t& handler)
-	{
-		this->async_read(&value, sizeof(value), handler);
-	}
+		explicit boost_tcp_socket(std::shared_ptr<asio_context_type> io_context, asio_socket_type asio_socket, std::shared_ptr<boost_ssl_context> ssl_context)
+			:	io_context_(std::move(io_context)),
+				ssl_context_(std::move(ssl_context)),
+				stream_(std::make_unique<asio_stream_type>(std::move(asio_socket), ssl_context_->native_handle())) {}
 
-	template <class t>
-	std::uint8_t write(t value)
-	{
-		const std::uint8_t status = this->write(&value, sizeof(value));
+		bool connect(std::string_view host, std::string_view service) override;
+		bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
 
-		return status;
-	}
+		void close() override;
 
-	template <class t>
-	void async_write(t value, const async_callback_t& handler)
-	{
-		this->async_write(&value, sizeof(value), handler);
-	}
-};
+		bool handshake(handshake_type type) override;
+		void async_handshake(handshake_type type, const async_callback_t& handler) override;
 
-class boost_tcp_socket_t final : public socket_t
-{
-public:
-	typedef boost::asio::io_context asio_context_t;
-	typedef boost::asio::ip::tcp::resolver resolver_t;
-	typedef boost::asio::ip::tcp::socket asio_socket_t;
-	typedef boost::asio::ssl::stream<asio_socket_t> asio_stream_t;
-	typedef boost::asio::ssl::stream_base::handshake_type asio_handshake_type_t;
-	typedef boost::asio::ssl::stream_base::handshake_type asio_handshake_type_t;
-	typedef asio_socket_t::endpoint_type asio_endpoint_t;
+		bool read(void* buffer, std::size_t size) override;
+		void async_read(void* buffer, std::size_t size, const async_callback_t& handler) override;
 
-	explicit boost_tcp_socket_t(std::shared_ptr<asio_context_t> io_context, std::shared_ptr<boost_ssl_context_t> ssl_context)
-		:	io_context_(std::move(io_context)),
-			ssl_context_(std::move(ssl_context)),
-			stream_(std::make_unique<asio_stream_t>(*io_context_, ssl_context_->native_handle())) {}
+		bool write(const void* buffer, std::size_t size) override;
+		void async_write(const void* buffer, std::size_t size, const async_callback_t& handler) override;
 
-	explicit boost_tcp_socket_t(std::shared_ptr<asio_context_t> io_context, asio_socket_t socket, std::shared_ptr<boost_ssl_context_t> ssl_context)
-		:	io_context_(std::move(io_context)),
-			ssl_context_(std::move(ssl_context)),
-			stream_(std::make_unique<asio_stream_t>(std::move(socket), ssl_context_->native_handle())) {}
+		std::uint32_t ipv4_address() override;
+		std::uint16_t port() override;
 
-	std::uint8_t connect(const std::string_view& host, const std::string_view& service) override;
-	std::uint8_t connect(std::uint32_t ipv4_address, std::uint16_t port) override;
+	protected:
+		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
+		[[nodiscard]] asio_endpoint_type remote_endpoint() const;
+		[[nodiscard]] asio_endpoint_type local_endpoint() const;
 
-	void close() override;
+		[[nodiscard]] static asio_handshake_type to_asio_handshake_type(handshake_type type) noexcept;
 
-	std::uint8_t handshake(handshake_type_t type) override;
-	void async_handshake(handshake_type_t type, const async_callback_t& handler) override;
-
-	std::uint8_t read(void* buffer, std::uint64_t size) override;
-	void async_read(void* buffer, std::uint64_t size, const async_callback_t& handler) override;
-
-	std::uint8_t write(const void* buffer, std::uint64_t size) override;
-	void async_write(const void* buffer, std::uint64_t size, const async_callback_t& handler) override;
-
-	[[nodiscard]] std::uint32_t ipv4_address() override;
-	[[nodiscard]] std::uint16_t port() override;
-
-protected:
-	[[nodiscard]] std::optional<resolver_t::results_type> resolve_host(const std::string_view& host, const std::string_view& service) const;
-	[[nodiscard]] asio_endpoint_t remote_endpoint() const;
-	[[nodiscard]] asio_endpoint_t local_endpoint() const;
-
-	static asio_handshake_type_t asio_handshake_type(handshake_type_t type);
-
-	std::shared_ptr<asio_context_t> io_context_;
-	std::shared_ptr<boost_ssl_context_t> ssl_context_;
-	std::unique_ptr<asio_stream_t> stream_;
-};
-
+		std::shared_ptr<asio_context_type> io_context_;
+		std::shared_ptr<boost_ssl_context> ssl_context_;
+		std::unique_ptr<asio_stream_type> stream_;
+	};
+}

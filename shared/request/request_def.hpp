@@ -1,14 +1,17 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
-namespace request
+namespace sl::request
 {
-	typedef std::uint8_t request_id_t;
-	typedef std::uint64_t request_buffer_size_t;
+	using request_id_t = std::uint8_t;
+	using request_buffer_size_t = std::uint64_t;
 
+	// kept _t suffix: `request` would shadow the enclosing namespace
 	struct request_t
 	{
-		request_buffer_size_t header_size;
+		std::size_t header_size;
 		std::vector<std::uint8_t> buffer;
 	};
 }
