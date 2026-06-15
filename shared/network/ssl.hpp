@@ -21,16 +21,16 @@ namespace sl
 		virtual void require_peer_verification() = 0;
 
 		virtual void load_verify_file(const std::string& path_to_file) = 0;
-		virtual void add_certificate_authority(std::span<std::uint8_t> buffer) = 0;
+		virtual void add_certificate_authority(std::span<const std::uint8_t> buffer) = 0;
 
 		virtual void use_tmp_dh_file(const std::string& path_to_file) = 0;
-		virtual void use_tmp_dh(std::span<std::uint8_t> buffer) = 0;
+		virtual void use_tmp_dh(std::span<const std::uint8_t> buffer) = 0;
 
 		virtual void use_certificate(const std::string& path_to_certificate, crypto_file_format file_format) = 0;
-		virtual void use_certificate(std::span<std::uint8_t> buffer, crypto_file_format file_format) = 0;
+		virtual void use_certificate(std::span<const std::uint8_t> buffer, crypto_file_format file_format) = 0;
 
 		virtual void use_private_key(const std::string& path_to_key, crypto_file_format file_format) = 0;
-		virtual void use_private_key(std::span<std::uint8_t> buffer, crypto_file_format file_format) = 0;
+		virtual void use_private_key(std::span<const std::uint8_t> buffer, crypto_file_format file_format) = 0;
 	};
 
 	class boost_ssl_context final : public ssl_context
@@ -50,16 +50,16 @@ namespace sl
 		void require_peer_verification() override;
 
 		void load_verify_file(const std::string& path_to_file) override;
-		void add_certificate_authority(std::span<std::uint8_t> buffer) override;
+		void add_certificate_authority(std::span<const std::uint8_t> buffer) override;
 
 		void use_tmp_dh_file(const std::string& path_to_file) override;
-		void use_tmp_dh(std::span<std::uint8_t> buffer) override;
+		void use_tmp_dh(std::span<const std::uint8_t> buffer) override;
 
 		void use_certificate(const std::string& path_to_certificate, crypto_file_format file_format) override;
-		void use_certificate(std::span<std::uint8_t> buffer, crypto_file_format file_format) override;
+		void use_certificate(std::span<const std::uint8_t> buffer, crypto_file_format file_format) override;
 
 		void use_private_key(const std::string& path_to_key, crypto_file_format file_format) override;
-		void use_private_key(std::span<std::uint8_t> buffer, crypto_file_format file_format) override;
+		void use_private_key(std::span<const std::uint8_t> buffer, crypto_file_format file_format) override;
 
 		void set_options(ssl_options_type options);
 		void clear_options(ssl_options_type options);

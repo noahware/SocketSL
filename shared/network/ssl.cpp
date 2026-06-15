@@ -17,7 +17,7 @@ namespace sl
 		native_handle_->load_verify_file(path_to_file);
 	}
 
-	void boost_ssl_context::add_certificate_authority(const std::span<std::uint8_t> buffer)
+	void boost_ssl_context::add_certificate_authority(const std::span<const std::uint8_t> buffer)
 	{
 		native_handle_->add_certificate_authority(boost::asio::buffer(buffer));
 	}
@@ -27,7 +27,7 @@ namespace sl
 		native_handle_->use_tmp_dh_file(path_to_file);
 	}
 
-	void boost_ssl_context::use_tmp_dh(const std::span<std::uint8_t> buffer)
+	void boost_ssl_context::use_tmp_dh(const std::span<const std::uint8_t> buffer)
 	{
 		native_handle_->use_tmp_dh(boost::asio::buffer(buffer));
 	}
@@ -39,7 +39,7 @@ namespace sl
 		native_handle_->use_certificate_file(path_to_certificate, ssl_ff);
 	}
 
-	void boost_ssl_context::use_certificate(const std::span<std::uint8_t> buffer, const crypto_file_format file_format)
+	void boost_ssl_context::use_certificate(const std::span<const std::uint8_t> buffer, const crypto_file_format file_format)
 	{
 		const ssl_file_format_type ssl_ff = ssl_file_format(file_format);
 
@@ -53,7 +53,7 @@ namespace sl
 		native_handle_->use_private_key_file(path_to_key, ssl_ff);
 	}
 
-	void boost_ssl_context::use_private_key(const std::span<std::uint8_t> buffer, const crypto_file_format file_format)
+	void boost_ssl_context::use_private_key(const std::span<const std::uint8_t> buffer, const crypto_file_format file_format)
 	{
 		const ssl_file_format_type ssl_ff = ssl_file_format(file_format);
 

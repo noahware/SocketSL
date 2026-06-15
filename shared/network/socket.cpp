@@ -28,6 +28,44 @@ namespace sl
 		);
 	}
 
+	void boost_tcp_socket::set_timeout(const timeout_duration timeout)
+	{
+		timeout_ = timeout;
+	}
+
+	void boost_tcp_socket::start_deadline()
+	{
+		if (timeout_ == timeout_duration::zero())
+		{
+			return;
+		}
+
+		if (!timer_)
+		{
+			timer_ = std::make_unique<boost::asio::steady_timer>(executor_);
+		}
+
+		timer_->expires_after(timeout_);
+		timer_->async_wait(
+			[this](const boost::system::error_code& ec)
+			{
+				if (!ec)
+				{
+					LOG_WARN("socket operation timed out");
+					stream_->lowest_layer().close();
+				}
+			}
+		);
+	}
+
+	void boost_tcp_socket::cancel_deadline()
+	{
+		if (timer_)
+		{
+			timer_->cancel();
+		}
+	}
+
 	bool boost_tcp_socket::connect(const std::string_view host, const std::string_view service)
 	{
 		const std::optional<resolver_type::results_type> endpoints = resolve_host(host, service);
@@ -79,11 +117,15 @@ namespace sl
 
 	void boost_tcp_socket::async_handshake(const handshake_type type, const async_callback_t& handler)
 	{
+		start_deadline();
+
 		const asio_handshake_type asio_type = to_asio_handshake_type(type);
 
 		stream_->async_handshake(asio_type,
-			[handler](const boost::system::error_code& error_code)
+			[this, handler](const boost::system::error_code& error_code)
 			{
+				cancel_deadline();
+
 				const bool is_valid = !error_code;
 
 				if (!is_valid)
@@ -107,9 +149,13 @@ namespace sl
 
 	void boost_tcp_socket::async_read(const std::span<std::uint8_t> buffer, const async_callback_t& handler)
 	{
+		start_deadline();
+
 		boost::asio::async_read(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
-			[handler](const boost::system::error_code& error_code, const std::size_t)
+			[this, handler](const boost::system::error_code& error_code, const std::size_t)
 			{
+				cancel_deadline();
+
 				const bool is_valid = !error_code;
 
 				if (!is_valid)
@@ -133,9 +179,13 @@ namespace sl
 
 	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> buffer, const async_callback_t& handler)
 	{
+		start_deadline();
+
 		boost::asio::async_write(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
-			[handler](const boost::system::error_code& error_code, const std::size_t)
+			[this, handler](const boost::system::error_code& error_code, const std::size_t)
 			{
+				cancel_deadline();
+
 				const bool is_valid = !error_code;
 
 				if (!is_valid)
@@ -168,7 +218,7 @@ namespace sl
 	{
 		boost::system::error_code error_code = { };
 
-		resolver_type resolver(*io_context_);
+		resolver_type resolver(executor_);
 		resolver_type::results_type endpoints = resolver.resolve(host, service);
 
 		if (error_code)

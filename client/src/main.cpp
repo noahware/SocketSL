@@ -64,12 +64,12 @@ std::int32_t main()
 	{
 		LOG_INFO("client");
 
-		const auto io_context = std::make_shared<boost::asio::io_context>();
+		boost::asio::io_context io_context;
 		const auto ssl_ctx = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_client);
 
 		set_up_ssl_context(*ssl_ctx);
 
-		sl::boost_tcp_socket sock(io_context, ssl_ctx);
+		sl::boost_tcp_socket sock(io_context.get_executor(), ssl_ctx);
 
 		connect_to_server(sock);
 	}

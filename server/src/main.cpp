@@ -21,18 +21,22 @@ std::int32_t main()
 {
 	try
 	{
-		LOG_INFO("server");
+		const auto thread_count = std::thread::hardware_concurrency();
+		LOG_INFO("server (thread pool: {} threads)", thread_count);
 
 		const auto client_ssl_context = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_server);
 
 		set_up_ssl_context(*client_ssl_context);
 
-		const auto io_context = std::make_shared<boost::asio::io_context>();
-		const auto client_listener = std::make_shared<sl::boost_connection_listener<sl::client_connection>>(io_context, client_ssl_context, 2457);
+		boost::asio::thread_pool pool(std::thread::hardware_concurrency());
 
+		const auto client_listener = std::make_shared<sl::boost_connection_listener<sl::client_connection>>(
+			pool.get_executor(), client_ssl_context, 2457);
+
+		client_listener->set_timeout(std::chrono::seconds(10));
 		client_listener->async_wait_for_connection();
 
-		io_context->run();
+		pool.join();
 	}
 	catch (const std::exception& e)
 	{

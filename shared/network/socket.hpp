@@ -3,6 +3,7 @@
 
 #include "ssl.hpp"
 
+#include <chrono>
 #include <span>
 #include <type_traits>
 
@@ -13,6 +14,8 @@ namespace sl
 	class socket
 	{
 	public:
+		using timeout_duration = std::chrono::steady_clock::duration;
+
 		enum class handshake_type : std::uint8_t
 		{
 			client,
@@ -21,6 +24,8 @@ namespace sl
 
 		socket() = default;
 		virtual ~socket() = default;
+
+		virtual void set_timeout(timeout_duration timeout) = 0;
 
 		[[nodiscard]] virtual bool connect(std::string_view host, std::string_view service) = 0;
 		[[nodiscard]] virtual bool connect(std::uint32_t ipv4_address, std::uint16_t port) = 0;
@@ -59,22 +64,24 @@ namespace sl
 	class boost_tcp_socket final : public socket
 	{
 	public:
-		using asio_context_type = boost::asio::io_context;
+		using executor_type = boost::asio::any_io_executor;
 		using resolver_type = boost::asio::ip::tcp::resolver;
 		using asio_socket_type = boost::asio::ip::tcp::socket;
 		using asio_stream_type = boost::asio::ssl::stream<asio_socket_type>;
 		using asio_handshake_type = boost::asio::ssl::stream_base::handshake_type;
 		using asio_endpoint_type = asio_socket_type::endpoint_type;
 
-		explicit boost_tcp_socket(std::shared_ptr<asio_context_type> io_context, std::shared_ptr<boost_ssl_context> ssl_context)
-			:	io_context_(std::move(io_context)),
+		explicit boost_tcp_socket(executor_type executor, std::shared_ptr<boost_ssl_context> ssl_context)
+			:	executor_(std::move(executor)),
 				ssl_context_(std::move(ssl_context)),
-				stream_(std::make_unique<asio_stream_type>(*io_context_, ssl_context_->native_handle())) {}
+				stream_(std::make_unique<asio_stream_type>(executor_, ssl_context_->native_handle())) {}
 
-		explicit boost_tcp_socket(std::shared_ptr<asio_context_type> io_context, asio_socket_type asio_socket, std::shared_ptr<boost_ssl_context> ssl_context)
-			:	io_context_(std::move(io_context)),
+		explicit boost_tcp_socket(executor_type executor, asio_socket_type asio_socket, std::shared_ptr<boost_ssl_context> ssl_context)
+			:	executor_(std::move(executor)),
 				ssl_context_(std::move(ssl_context)),
 				stream_(std::make_unique<asio_stream_type>(std::move(asio_socket), ssl_context_->native_handle())) {}
+
+		void set_timeout(timeout_duration timeout) override;
 
 		bool connect(std::string_view host, std::string_view service) override;
 		bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
@@ -94,14 +101,19 @@ namespace sl
 		std::uint16_t port() const override;
 
 	protected:
+		void start_deadline();
+		void cancel_deadline();
+
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
 		[[nodiscard]] asio_endpoint_type remote_endpoint() const;
 		[[nodiscard]] asio_endpoint_type local_endpoint() const;
 
 		[[nodiscard]] static asio_handshake_type to_asio_handshake_type(handshake_type type) noexcept;
 
-		std::shared_ptr<asio_context_type> io_context_;
+		executor_type executor_;
 		std::shared_ptr<boost_ssl_context> ssl_context_;
 		std::unique_ptr<asio_stream_type> stream_;
+		timeout_duration timeout_{};
+		std::unique_ptr<boost::asio::steady_timer> timer_;
 	};
 }
