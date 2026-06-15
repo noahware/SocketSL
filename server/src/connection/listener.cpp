@@ -47,4 +47,16 @@ namespace sl
 			}
 		);
 	}
+
+	void connection_listener::stop()
+	{
+		const std::lock_guard lock(connections_mutex_);
+
+		for (const auto& conn : connections_)
+		{
+			conn->socket().close();
+		}
+
+		connections_.clear();
+	}
 }

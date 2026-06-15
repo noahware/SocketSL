@@ -18,6 +18,7 @@ namespace sl
 		void set_timeout(timeout_duration timeout) noexcept;
 
 		virtual void async_wait_for_connection() = 0;
+		virtual void stop();
 
 		void add_connection(std::shared_ptr<connection> connection);
 		void remove_connection(connection* connection);
@@ -47,6 +48,7 @@ namespace sl
 					acceptor_(std::make_unique<acceptor_type>(executor_, endpoint_type(tcp_type::v4(), port))) { }
 
 		void async_wait_for_connection() override;
+		void stop() override;
 
 	protected:
 		executor_type executor_;
@@ -60,27 +62,39 @@ namespace sl
 		acceptor_->async_accept(
 			[this](const boost::system::error_code& error_code, asio_socket_type asio_socket)
 			{
-				if (!error_code)
+				if (error_code)
 				{
-					const auto local_endpoint = asio_socket.local_endpoint();
+					if (error_code != boost::asio::error::operation_aborted)
+					{
+						LOG_ERR(error_code.what());
+					}
 
-					const auto remote_endpoint = asio_socket.remote_endpoint();
-					const auto endpoint_address = remote_endpoint.address();
-
-					LOG_INFO("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
-
-					auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(asio_socket), ssl_context_);
-					auto connection = std::make_shared<ConnectionT>(std::move(socket), this->shared_from_this());
-
-					add_connection(std::move(connection));
+					return;
 				}
-				else
-				{
-					LOG_ERR(error_code.what());
-				}
+
+				const auto local_endpoint = asio_socket.local_endpoint();
+
+				const auto remote_endpoint = asio_socket.remote_endpoint();
+				const auto endpoint_address = remote_endpoint.address();
+
+				LOG_INFO("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
+
+				auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(asio_socket), ssl_context_);
+				auto connection = std::make_shared<ConnectionT>(std::move(socket), this->shared_from_this());
+
+				add_connection(std::move(connection));
 
 				async_wait_for_connection();
 			}
 		);
+	}
+
+	template <class ConnectionT>
+	void boost_connection_listener<ConnectionT>::stop()
+	{
+		boost::system::error_code ec;
+		acceptor_->close(ec);
+
+		connection_listener::stop();
 	}
 }
