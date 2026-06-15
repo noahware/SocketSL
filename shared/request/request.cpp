@@ -14,7 +14,7 @@ namespace sl::request
 		{
 			std::vector<std::uint8_t>& request_buffer = request.buffer;
 
-			const std::vector<std::uint8_t> request_header = make_request_header(request_id, request_buffer.size());
+			const std::vector<std::uint8_t> request_header = make_header(request_id, request_buffer.size());
 
 			request_buffer.insert(request_buffer.begin(), request_header.begin(), request_header.end());
 
@@ -22,7 +22,7 @@ namespace sl::request
 		}
 	}
 
-	request_t make_request_from_body(const request_id_t request_id, std::span<const std::uint8_t> request_body)
+	request_t make_from_body(const request_id_t request_id, std::span<const std::uint8_t> request_body)
 	{
 		request_t request = { .header_size = 0, .buffer = {request_body.begin(), request_body.end()} };
 
@@ -38,7 +38,7 @@ namespace sl::request
 		(void)socket.write(buffer);
 	}
 
-	std::vector<std::uint8_t> make_request_header(const request_id_t request_id, const std::size_t body_size)
+	std::vector<std::uint8_t> make_header(const request_id_t request_id, const std::size_t body_size)
 	{
 		return serialisation::serialise(CREATION_WRAPPER(CreateRequestHeader), request_id, body_size);
 	}

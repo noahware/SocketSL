@@ -9,14 +9,14 @@ A modern C++ client-server model built using SSL sockets.
 ```cpp
 void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
-	sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+	sl::request::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
 }
 
 void receive_test_response(sl::socket& socket)
 {
 	std::vector<std::uint8_t> response_buffer = { };
 
-	const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
+	const auto test_response = sl::response::read<Client::TestResponse>(socket, response_buffer);
 
 	LOG_INFO("test response key: 0x{:X}", test_response->key());
 }
@@ -46,18 +46,15 @@ void handle_valid_test_request(const std::shared_ptr<sl::connection>& connection
 
 	constexpr std::uint64_t response_key = 0x56789;
 
-	const auto response_body = std::make_shared<std::vector<std::uint8_t>>(
-		sl::response::make_response(CREATION_WRAPPER(Client::CreateTestResponse), response_key));
-
-	sl::response::async_send_buffer(connection->socket(), response_body,
+	sl::response::send(connection->socket(),
 		[](const bool is_valid)
 		{
 			if (is_valid)
 			{
 				LOG_INFO("successfully sent response");
 			}
-		}
-	);
+		},
+		CREATION_WRAPPER(Client::CreateTestResponse), response_key);
 }
 
 constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
@@ -143,10 +140,10 @@ Generic templates wrap serialisation for requests and responses, so you never ca
 
 ```cpp
 // client: send a request in one call
-sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
+sl::request::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
 
-// server: build a response body
-auto body = sl::response::make_response(CREATION_WRAPPER(Client::CreateTestResponse), key);
+// server: send a response in one call
+sl::response::send(socket, handler, CREATION_WRAPPER(Client::CreateTestResponse), key);
 ```
 
 ## Server connections/requests

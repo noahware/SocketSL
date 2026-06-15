@@ -10,7 +10,7 @@ namespace sl::response
 	void read_buffer(sl::socket& socket, std::vector<std::uint8_t>& buffer);
 
 	template <class T>
-	[[nodiscard]] const T* read_response(sl::socket& socket, std::vector<std::uint8_t>& buffer)
+	[[nodiscard]] const T* read(sl::socket& socket, std::vector<std::uint8_t>& buffer)
 	{
 		read_buffer(socket, buffer);
 
@@ -18,8 +18,16 @@ namespace sl::response
 	}
 
 	template <class CreateFn, class... Args>
-	[[nodiscard]] std::vector<std::uint8_t> make_response(CreateFn&& create_fn, Args&&... args)
+	[[nodiscard]] std::vector<std::uint8_t> make(CreateFn&& create_fn, Args&&... args)
 	{
 		return serialisation::serialise(std::forward<CreateFn>(create_fn), std::forward<Args>(args)...);
+	}
+
+	template <class CreateFn, class... Args>
+	void send(sl::socket& socket, const async_callback_t& handler, CreateFn&& create_fn, Args&&... args)
+	{
+		auto buffer = std::make_shared<std::vector<std::uint8_t>>(
+			make(std::forward<CreateFn>(create_fn), std::forward<Args>(args)...));
+		async_send_buffer(socket, buffer, handler);
 	}
 }

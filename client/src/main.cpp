@@ -10,14 +10,14 @@ namespace
 {
 	void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 	{
-		sl::request::send_request(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+		sl::request::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
 	}
 
 	void receive_test_response(sl::socket& socket)
 	{
 		std::vector<std::uint8_t> response_buffer = { };
 
-		const auto test_response = sl::response::read_response<Client::TestResponse>(socket, response_buffer);
+		const auto test_response = sl::response::read<Client::TestResponse>(socket, response_buffer);
 
 		LOG_INFO("test response key: 0x{:X}", test_response->key());
 	}
