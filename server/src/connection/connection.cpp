@@ -148,17 +148,15 @@ namespace sl
 		}
 
 		constexpr request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+
+		using router = request::request_router<test_request>;
 	}
 
 	void client_connection::handle_request(const request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
 	{
-		const auto self = this->shared_from_this();
-
-		if (test_request.process(request_id, self, *body_buffer))
+		if (!router::dispatch(request_id, shared_from_this(), *body_buffer))
 		{
-			return;
+			LOG_ERR("unknown request type: {}", request_id);
 		}
-
-		LOG_ERR("unknown request type: {}", request_id);
 	}
 }

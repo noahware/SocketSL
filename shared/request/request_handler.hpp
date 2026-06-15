@@ -41,4 +41,16 @@ namespace sl::request
 			return true;
 		}
 	};
+
+	template <auto&... Handlers>
+	struct request_router
+	{
+		[[nodiscard]] static bool dispatch(
+			const request_id_t id,
+			const std::shared_ptr<connection>& conn,
+			std::span<const std::uint8_t> body)
+		{
+			return (Handlers.process(id, conn, body) || ...);
+		}
+	};
 }

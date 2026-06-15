@@ -59,16 +59,14 @@ void handle_valid_test_request(const std::shared_ptr<sl::connection>& connection
 
 constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
 
+using router = sl::request::request_router<test_request>;
+
 void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
 {
-	const auto self = shared_from_this();
-
-	if (test_request.process(request_id, self, *body_buffer))
+	if (!router::dispatch(request_id, shared_from_this(), *body_buffer))
 	{
-		return;
+		LOG_ERR("unknown request type: {}", request_id);
 	}
-
-	LOG_ERR("unknown request type: {}", request_id);
 }
 ```
 
@@ -154,7 +152,7 @@ The server holds a base `sl::connection` class which implements all of the reque
 virtual void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) = 0;
 ```
 
-Use `sl::request::request_info` to declare constexpr handler descriptors that bundle the request ID, FlatBuffer type, and handler function pointer. The `process` method validates, deserialises, and dispatches in one call:
+Use `sl::request::request_info` to declare constexpr request descriptors that store the request ID, FlatBuffer type, and handler function pointer. This is linked into a 'router' which automatically processes the request when received.
 
 ```cpp
 void handle_valid_test_request(const std::shared_ptr<sl::connection>& conn, const Client::TestRequest* body)
@@ -164,20 +162,18 @@ void handle_valid_test_request(const std::shared_ptr<sl::connection>& conn, cons
 
 constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
 
+using router = sl::request::request_router<test_request>;
+
 void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
 {
-	const auto self = shared_from_this();
-
-	if (test_request.process(request_id, self, *body_buffer))
+	if (!router::dispatch(request_id, shared_from_this(), *body_buffer))
 	{
-		return;
+		LOG_ERR("unknown request type: {}", request_id);
 	}
-
-	LOG_ERR("unknown request type: {}", request_id);
 }
 ```
 
-A working example is included in the project already.
+Adding a new request type is just defining a `constexpr request_info` and adding it to the `request_router` template parameter list. An example is included in the project already.
 
 ## Server's connection listener
 
