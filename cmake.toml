@@ -43,6 +43,10 @@ sources = [
     "shared/network/ssl.cpp",
     "shared/request/request.cpp",
     "shared/response/response.cpp",
+    "shared/connection/session.cpp",
+    "shared/connection/connection.cpp",
+    "shared/connection/listener.cpp",
+    "shared/connection/client_session.cpp",
 ]
 include-directories = ["shared"]
 compile-features = ["cxx_std_20"]
@@ -106,8 +110,7 @@ endif()
 type = "executable"
 sources = [
     "server/src/main.cpp",
-    "server/src/connection/connection.cpp",
-    "server/src/connection/listener.cpp",
+    "server/src/connection/client_connection.cpp",
 ]
 include-directories = ["server/src"]
 link-libraries = ["socketsl"]
@@ -116,7 +119,6 @@ link-libraries = ["socketsl"]
 type = "executable"
 sources = [
     "client/src/main.cpp",
-    "client/src/client_session.cpp",
 ]
 include-directories = ["client/src"]
 link-libraries = ["socketsl"]

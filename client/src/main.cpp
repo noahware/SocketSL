@@ -1,4 +1,4 @@
-#include "client_session.hpp"
+#include <connection/client_session.hpp>
 
 #include <request/request.hpp>
 #include <router/router.hpp>
@@ -71,7 +71,7 @@ namespace
 	protected:
 		void handle_response(const sl::response::response_id_t id, const std::shared_ptr<std::vector<std::uint8_t>> body) override
 		{
-			if (!response_router::dispatch(id, shared_from_this(), *body))
+			if (!response_router::dispatch(id, shared_as<sl::client_session>(), *body))
 			{
 				LOG_ERR("unknown response type: {}", id);
 			}

@@ -26,7 +26,7 @@ namespace sl
 						connections_.push_back(connection);
 					}
 
-					connection->await_request();
+					connection->start();
 				}
 				else
 				{
@@ -50,6 +50,8 @@ namespace sl
 
 	std::size_t connection_listener::conn_count() const noexcept
 	{
+		const std::lock_guard lock(connections_mutex_);
+
 		return connections_.size();
 	}
 

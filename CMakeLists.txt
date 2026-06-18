@@ -65,6 +65,10 @@ target_sources(socketsl PRIVATE
     shared/network/ssl.cpp
     shared/request/request.cpp
     shared/response/response.cpp
+    shared/connection/session.cpp
+    shared/connection/connection.cpp
+    shared/connection/listener.cpp
+    shared/connection/client_session.cpp
 )
 
 target_include_directories(socketsl PUBLIC
@@ -133,8 +137,7 @@ add_executable(server)
 
 target_sources(server PRIVATE
     server/src/main.cpp
-    server/src/connection/connection.cpp
-    server/src/connection/listener.cpp
+    server/src/connection/client_connection.cpp
 )
 
 target_include_directories(server PRIVATE
@@ -148,7 +151,6 @@ add_executable(client)
 
 target_sources(client PRIVATE
     client/src/main.cpp
-    client/src/client_session.cpp
 )
 
 target_include_directories(client PRIVATE

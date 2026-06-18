@@ -1,7 +1,9 @@
 #include <log/log.hpp>
 
-#include "connection/listener.hpp"
-#include "network/socket.hpp"
+#include <connection/listener.hpp>
+#include <network/socket.hpp>
+
+#include "connection/client_connection.hpp"
 
 namespace
 {
@@ -41,6 +43,7 @@ std::int32_t main()
 			[&client_listener](const boost::system::error_code&, int)
 			{
 				LOG_INFO("shutting down");
+
 				client_listener->stop();
 			}
 		);
