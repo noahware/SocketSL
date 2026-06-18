@@ -1,12 +1,17 @@
 #include "session.hpp"
+#include "session_manager.hpp"
 
+#include <serialisation/serialisation.hpp>
 #include <endian/endian.hpp>
 #include <log/log.hpp>
 
+#include <schema/message_generated.h>
+
 namespace sl
 {
-	session::session(std::unique_ptr<sl::socket> socket) noexcept
-		: socket_(std::move(socket)) {}
+	session::session(std::unique_ptr<sl::socket> socket, std::shared_ptr<session_manager> manager) noexcept
+		:	socket_(std::move(socket)),
+			manager_(std::move(manager)) {}
 
 	session::~session()
 	{
@@ -16,6 +21,21 @@ namespace sl
 	sl::socket& session::socket() const noexcept
 	{
 		return *socket_;
+	}
+
+	bool session::connect(const std::string_view host, const std::string_view service)
+	{
+		return socket_->connect(host, service);
+	}
+
+	bool session::handshake(const sl::socket::handshake_type type) const
+	{
+		return socket_->handshake(type);
+	}
+
+	void session::async_handshake(const sl::socket::handshake_type type, const async_callback_t& handler) const
+	{
+		socket_->async_handshake(type, handler);
 	}
 
 	void session::start()
@@ -30,7 +50,29 @@ namespace sl
 
 	void session::on_error()
 	{
-		stop();
+		if (manager_)
+		{
+			manager_->remove_session(this);
+		}
+		else
+		{
+			stop();
+		}
+	}
+
+	bool session::parse_header(const std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size)
+	{
+		if (!serialisation::is_valid<MessageHeader>(header))
+		{
+			return false;
+		}
+
+		const auto* message_header = serialisation::deserialise<MessageHeader>(header);
+
+		out_type = message_header->type();
+		out_body_size = message_header->body_size();
+
+		return true;
 	}
 
 	void session::read_frame_size()
@@ -73,7 +115,7 @@ namespace sl
 				message_id_t type = 0;
 				std::size_t body_size = 0;
 
-				if (!self->parse_header(*header_buffer, type, body_size))
+				if (!parse_header(*header_buffer, type, body_size))
 				{
 					LOG_ERR("message header is invalid");
 
@@ -103,7 +145,7 @@ namespace sl
 					return;
 				}
 
-				self->on_message(type, body_buffer);
+				self->handle_message(type, body_buffer);
 
 				self->read_frame_size();
 			}

@@ -63,12 +63,9 @@ add_library(socketsl STATIC)
 target_sources(socketsl PRIVATE
     shared/network/socket.cpp
     shared/network/ssl.cpp
-    shared/request/request.cpp
-    shared/response/response.cpp
+    shared/message/message.cpp
     shared/connection/session.cpp
-    shared/connection/server_session.cpp
-    shared/connection/listener.cpp
-    shared/connection/client_session.cpp
+    shared/connection/session_manager.cpp
 )
 
 target_include_directories(socketsl PUBLIC
@@ -92,6 +89,7 @@ set(FBS_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/schema")
 file(MAKE_DIRECTORY "${FBS_GENERATED_DIR}")
 
 set(FBS_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/shared/message/message.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/request/request.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/response/response.fbs"
 )

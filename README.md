@@ -9,14 +9,14 @@ A modern C++ client-server model built using SSL sockets.
 ```cpp
 void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
-	sl::request::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+	sl::msg::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
 }
 
 void receive_test_response(sl::socket& socket)
 {
 	std::vector<std::uint8_t> response_buffer = { };
 
-	const auto test_response = sl::response::read<Client::TestResponse>(socket, response_buffer);
+	const auto test_response = sl::msg::recv<Client::TestResponse>(socket, response_buffer);
 
 	LOG_INFO("test response key: 0x{:X}", test_response->key());
 }
@@ -40,13 +40,14 @@ void connect_to_server(sl::socket& socket)
 ## Server
 
 ```cpp
-void handle_valid_test_request(const std::shared_ptr<sl::server_session>& connection, const Client::TestRequest* const request_body)
+void handle_valid_test_request(const std::shared_ptr<sl::session>& sess, const Client::TestRequest* const request_body)
 {
 	LOG_INFO("test request key: 0x{:X}", request_body->key());
 
 	constexpr std::uint64_t response_key = 0x56789;
 
-	sl::response::send(connection->socket(),
+	sl::msg::async_send(sess->socket(),
+		Client::ResponseId_Test,
 		[](const bool is_valid)
 		{
 			if (is_valid)
@@ -57,15 +58,15 @@ void handle_valid_test_request(const std::shared_ptr<sl::server_session>& connec
 		CREATION_WRAPPER(Client::CreateTestResponse), response_key);
 }
 
-constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+constexpr sl::message_info<Client::TestRequest, sl::session> test_request{Client::RequestId_Test, handle_valid_test_request};
 
-using router = sl::request::request_router<test_request>;
+using router = sl::message_router<test_request>;
 
-void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
+void sl::client_connection::handle_message(const sl::session::message_id_t id, const sl::session::body_buffer_t body)
 {
-	if (!router::dispatch(request_id, shared_from_this(), *body_buffer))
+	if (!router::dispatch(id, shared_as<sl::session>(), *body))
 	{
-		LOG_ERR("unknown request type: {}", request_id);
+		LOG_ERR("unknown request type: {}", id);
 	}
 }
 ```
@@ -138,54 +139,54 @@ Generic templates wrap serialisation for requests and responses, so you never ca
 
 ```cpp
 // client: send a request in one call
-sl::request::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
+sl::msg::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
 
 // server: send a response in one call
-sl::response::send(socket, handler, CREATION_WRAPPER(Client::CreateTestResponse), key);
+sl::msg::async_send(socket, Client::ResponseId_Test, handler, CREATION_WRAPPER(Client::CreateTestResponse), key);
 ```
 
-## Server connections/requests
+## Sessions / requests
 
-The server holds a base `sl::server_session` class which implements all of the request header / body parsing, all it requires the developer to implement is the `handle_request` routine:
+The library exposes one base `sl::session` class (used for both directions) which implements all of the framing and header / body parsing; the developer only implements the `handle_message` routine:
 
 ```cpp
-virtual void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) = 0;
+virtual void handle_message(session::message_id_t id, session::body_buffer_t body) = 0;
 ```
 
-Use `sl::request::request_info` to declare constexpr request descriptors that store the request ID, FlatBuffer type, and handler function pointer. This is linked into a 'router' which automatically processes the request when received.
+Use `sl::message_info` to declare constexpr message descriptors that store the message ID, FlatBuffer type, and handler function pointer. These are linked into a `message_router` which automatically dispatches the message when received.
 
 ```cpp
-void handle_valid_test_request(const std::shared_ptr<sl::server_session>& conn, const Client::TestRequest* body)
+void handle_valid_test_request(const std::shared_ptr<sl::session>& sess, const Client::TestRequest* body)
 {
 	/* act on body, send response */
 }
 
-constexpr sl::request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+constexpr sl::message_info<Client::TestRequest, sl::session> test_request{Client::RequestId_Test, handle_valid_test_request};
 
-using router = sl::request::request_router<test_request>;
+using router = sl::message_router<test_request>;
 
-void sl::client_connection::handle_request(const sl::request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)
+void sl::client_connection::handle_message(const sl::session::message_id_t id, const sl::session::body_buffer_t body)
 {
-	if (!router::dispatch(request_id, shared_from_this(), *body_buffer))
+	if (!router::dispatch(id, shared_as<sl::session>(), *body))
 	{
-		LOG_ERR("unknown request type: {}", request_id);
+		LOG_ERR("unknown request type: {}", id);
 	}
 }
 ```
 
-Adding a new request type is just defining a `constexpr request_info` and adding it to the `request_router` template parameter list. An example is included in the project already.
+Adding a new message type is just defining a `constexpr message_info` and adding it to the `message_router` template parameter list. An example is included in the project already.
 
-## Server's connection listener
+## Session manager
 
-The connection listener takes in the port and type of connection it has to listen to, once a connection is created, it will handshake and instantiate a connection of the templated type.
+The session manager takes in the port and the session type it manages; for each accepted connection it handshakes and instantiates a session of the templated type.
 
-Here is an example with the `boost-asio` connection listener:
+Here is an example with the `boost-asio` session manager:
 
 ```cpp
-const auto io_context = std::make_shared<boost::asio::io_context>();
-const auto client_listener = std::make_shared<sl::boost_server<sl::client_connection>>(io_context, client_ssl_context, 2457);
+const auto manager = std::make_shared<sl::boost_session_manager<sl::client_connection>>(
+	executor, client_ssl_context, 2457);
 
-client_listener->async_wait_for_connection();
+manager->async_wait_for_connection();
 ```
 
 # Usage

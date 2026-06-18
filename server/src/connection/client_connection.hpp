@@ -1,17 +1,17 @@
 #pragma once
-#include <connection/server_session.hpp>
+#include <connection/session.hpp>
 
 #include <memory>
 #include <vector>
 
 namespace sl
 {
-	class client_connection final : public server_session
+	class client_connection final : public session
 	{
 	public:
-		using server_session::server_session;
+		using session::session;
 
 	protected:
-		void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) override;
+		void handle_message(message_id_t id, body_buffer_t body) override;
 	};
 }

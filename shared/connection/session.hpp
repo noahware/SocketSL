@@ -4,13 +4,16 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
 namespace sl
 {
-	// async framed-message read loop over a socket.
-	// wire frame: [uint64 frame size][header flatbuffer { type, body_size }][body]
+	class session_manager;
+
+	// async framed-message session over a socket, used for both directions.
+	// wire frame: [uint64 frame size][MessageHeader { type, body_size }][body]
 	class session : public std::enable_shared_from_this<session>
 	{
 	public:
@@ -18,7 +21,7 @@ namespace sl
 		using frame_size_t = std::uint64_t;
 		using body_buffer_t = std::shared_ptr<std::vector<std::uint8_t>>;
 
-		explicit session(std::unique_ptr<sl::socket> socket) noexcept;
+		explicit session(std::unique_ptr<sl::socket> socket, std::shared_ptr<session_manager> manager = nullptr) noexcept;
 		virtual ~session();
 
 		session(const session&) = delete;
@@ -26,19 +29,18 @@ namespace sl
 
 		[[nodiscard]] sl::socket& socket() const noexcept;
 
+		[[nodiscard]] bool connect(std::string_view host, std::string_view service);
+		[[nodiscard]] bool handshake(sl::socket::handshake_type type) const;
+		void async_handshake(sl::socket::handshake_type type, const async_callback_t& handler) const;
+
 		void start();
 		void stop();
 
 	protected:
-		// parse a header buffer into (type, body_size); return false on protocol error
-		[[nodiscard]] virtual bool parse_header(std::span<const std::uint8_t> header,
-												message_id_t& out_type,
-												std::size_t& out_body_size) const = 0;
-
 		// a complete message body has been received
-		virtual void on_message(message_id_t type, body_buffer_t body) = 0;
+		virtual void handle_message(message_id_t id, body_buffer_t body) = 0;
 
-		// any read or protocol failure; default closes the socket
+		// any read or protocol failure; default deregisters (if managed) or closes the socket
 		virtual void on_error();
 
 		template <class Self>
@@ -50,8 +52,11 @@ namespace sl
 		}
 
 		std::unique_ptr<sl::socket> socket_;
+		std::shared_ptr<session_manager> manager_;
 
 	private:
+		[[nodiscard]] static bool parse_header(std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size);
+
 		void read_frame_size();
 		void read_header(std::size_t header_size);
 		void read_body(message_id_t type, std::size_t body_size);

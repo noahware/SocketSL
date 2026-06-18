@@ -1,5 +1,5 @@
 #pragma once
-#include "server_session.hpp"
+#include "session.hpp"
 
 #include <log/log.hpp>
 
@@ -7,45 +7,46 @@
 
 namespace sl
 {
-	class server
+	class session_manager
 	{
 	public:
 		using timeout_duration = socket::timeout_duration;
 
-		server() = default;
-		virtual ~server() = default;
+		session_manager() = default;
+		virtual ~session_manager() = default;
 
 		void set_timeout(timeout_duration timeout) noexcept;
 
 		virtual void async_wait_for_connection() = 0;
 		virtual void stop();
 
-		void add_connection(std::shared_ptr<server_session> connection);
-		void remove_connection(server_session* connection);
+		void add_session(std::shared_ptr<session> sess);
+		void remove_session(session* sess);
 
 		template <class Fn>
-		void for_each_conn(Fn&& fn)
+		void for_each_session(Fn&& fn)
 		{
-			const std::lock_guard lock(connections_mutex_);
-			for (const auto& conn : connections_)
+			const std::lock_guard lock(sessions_mutex_);
+
+			for (const auto& sess : sessions_)
 			{
-				fn(conn);
+				fn(sess);
 			}
 		}
 
-		[[nodiscard]] std::size_t conn_count() const noexcept;
+		[[nodiscard]] std::size_t session_count() const;
 
 	protected:
 		timeout_duration timeout_{};
-		mutable std::mutex connections_mutex_;
-		std::vector<std::shared_ptr<server_session>> connections_;
+		mutable std::mutex sessions_mutex_;
+		std::vector<std::shared_ptr<session>> sessions_;
 	};
 
 	// must be created as a shared ptr
-	template <class ConnectionT>
-	class boost_server final : public server, public std::enable_shared_from_this<boost_server<ConnectionT>>
+	template <class SessionT>
+	class boost_session_manager final : public session_manager, public std::enable_shared_from_this<boost_session_manager<SessionT>>
 	{
-		static_assert(std::is_base_of_v<server_session, ConnectionT>, "ConnectionT must derive from server_session");
+		static_assert(std::is_base_of_v<session, SessionT>, "SessionT must derive from session");
 
 	public:
 		using executor_type = boost::asio::any_io_executor;
@@ -54,7 +55,7 @@ namespace sl
 		using endpoint_type = boost::asio::ip::tcp::endpoint;
 		using asio_socket_type = boost::asio::ip::tcp::socket;
 
-		boost_server(executor_type executor, std::shared_ptr<boost_ssl_context> ssl_context, const std::uint16_t port)
+		boost_session_manager(executor_type executor, std::shared_ptr<boost_ssl_context> ssl_context, const std::uint16_t port)
 				:	executor_(std::move(executor)),
 					ssl_context_(std::move(ssl_context)),
 					acceptor_(std::make_unique<acceptor_type>(executor_, endpoint_type(tcp_type::v4(), port))) { }
@@ -68,8 +69,8 @@ namespace sl
 		std::unique_ptr<acceptor_type> acceptor_;
 	};
 
-	template <class ConnectionT>
-	void boost_server<ConnectionT>::async_wait_for_connection()
+	template <class SessionT>
+	void boost_session_manager<SessionT>::async_wait_for_connection()
 	{
 		acceptor_->async_accept(
 			[this](const boost::system::error_code& error_code, asio_socket_type asio_socket)
@@ -92,21 +93,21 @@ namespace sl
 				LOG_INFO("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
 
 				auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(asio_socket), ssl_context_);
-				auto connection = std::make_shared<ConnectionT>(std::move(socket), this->shared_from_this());
+				auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());
 
-				add_connection(std::move(connection));
+				add_session(std::move(sess));
 
 				async_wait_for_connection();
 			}
 		);
 	}
 
-	template <class ConnectionT>
-	void boost_server<ConnectionT>::stop()
+	template <class SessionT>
+	void boost_session_manager<SessionT>::stop()
 	{
 		boost::system::error_code ec;
 		acceptor_->close(ec);
 
-		server::stop();
+		session_manager::stop();
 	}
 }

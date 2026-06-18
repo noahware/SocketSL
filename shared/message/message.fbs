@@ -1,0 +1,7 @@
+table MessageHeader
+{
+    type: uint8;
+    body_size: uint64;
+}
+
+root_type MessageHeader;
