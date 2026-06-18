@@ -1,4 +1,4 @@
-#include "connection.hpp"
+#include "server_session.hpp"
 #include "listener.hpp"
 
 #include <serialisation/serialisation.hpp>
@@ -7,22 +7,22 @@
 
 namespace sl
 {
-	bool connection::handshake(const sl::socket::handshake_type type) const
+	bool server_session::handshake(const sl::socket::handshake_type type) const
 	{
 		return socket_->handshake(type);
 	}
 
-	void connection::async_handshake(const sl::socket::handshake_type type, const async_callback_t& handler) const
+	void server_session::async_handshake(const sl::socket::handshake_type type, const async_callback_t& handler) const
 	{
 		socket_->async_handshake(type, handler);
 	}
 
-	void connection::close_self()
+	void server_session::close_self()
 	{
 		parent_listener_->remove_connection(this);
 	}
 
-	bool connection::parse_header(const std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size) const
+	bool server_session::parse_header(const std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size) const
 	{
 		if (!serialisation::is_valid<RequestHeader>(header))
 		{
@@ -37,12 +37,12 @@ namespace sl
 		return true;
 	}
 
-	void connection::on_message(const message_id_t type, body_buffer_t body)
+	void server_session::on_message(const message_id_t type, body_buffer_t body)
 	{
 		handle_request(type, std::move(body));
 	}
 
-	void connection::on_error()
+	void server_session::on_error()
 	{
 		close_self();
 	}

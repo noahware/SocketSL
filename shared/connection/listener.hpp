@@ -1,5 +1,5 @@
 #pragma once
-#include "connection.hpp"
+#include "server_session.hpp"
 
 #include <log/log.hpp>
 
@@ -7,21 +7,21 @@
 
 namespace sl
 {
-	class connection_listener
+	class server
 	{
 	public:
 		using timeout_duration = socket::timeout_duration;
 
-		connection_listener() = default;
-		virtual ~connection_listener() = default;
+		server() = default;
+		virtual ~server() = default;
 
 		void set_timeout(timeout_duration timeout) noexcept;
 
 		virtual void async_wait_for_connection() = 0;
 		virtual void stop();
 
-		void add_connection(std::shared_ptr<connection> connection);
-		void remove_connection(connection* connection);
+		void add_connection(std::shared_ptr<server_session> connection);
+		void remove_connection(server_session* connection);
 
 		template <class Fn>
 		void for_each_conn(Fn&& fn)
@@ -38,14 +38,14 @@ namespace sl
 	protected:
 		timeout_duration timeout_{};
 		mutable std::mutex connections_mutex_;
-		std::vector<std::shared_ptr<connection>> connections_;
+		std::vector<std::shared_ptr<server_session>> connections_;
 	};
 
 	// must be created as a shared ptr
 	template <class ConnectionT>
-	class boost_connection_listener final : public connection_listener, public std::enable_shared_from_this<boost_connection_listener<ConnectionT>>
+	class boost_server final : public server, public std::enable_shared_from_this<boost_server<ConnectionT>>
 	{
-		static_assert(std::is_base_of_v<connection, ConnectionT>, "ConnectionT must derive from connection");
+		static_assert(std::is_base_of_v<server_session, ConnectionT>, "ConnectionT must derive from server_session");
 
 	public:
 		using executor_type = boost::asio::any_io_executor;
@@ -54,7 +54,7 @@ namespace sl
 		using endpoint_type = boost::asio::ip::tcp::endpoint;
 		using asio_socket_type = boost::asio::ip::tcp::socket;
 
-		boost_connection_listener(executor_type executor, std::shared_ptr<boost_ssl_context> ssl_context, const std::uint16_t port)
+		boost_server(executor_type executor, std::shared_ptr<boost_ssl_context> ssl_context, const std::uint16_t port)
 				:	executor_(std::move(executor)),
 					ssl_context_(std::move(ssl_context)),
 					acceptor_(std::make_unique<acceptor_type>(executor_, endpoint_type(tcp_type::v4(), port))) { }
@@ -69,7 +69,7 @@ namespace sl
 	};
 
 	template <class ConnectionT>
-	void boost_connection_listener<ConnectionT>::async_wait_for_connection()
+	void boost_server<ConnectionT>::async_wait_for_connection()
 	{
 		acceptor_->async_accept(
 			[this](const boost::system::error_code& error_code, asio_socket_type asio_socket)
@@ -102,11 +102,11 @@ namespace sl
 	}
 
 	template <class ConnectionT>
-	void boost_connection_listener<ConnectionT>::stop()
+	void boost_server<ConnectionT>::stop()
 	{
 		boost::system::error_code ec;
 		acceptor_->close(ec);
 
-		connection_listener::stop();
+		server::stop();
 	}
 }

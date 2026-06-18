@@ -40,7 +40,7 @@ void connect_to_server(sl::socket& socket)
 ## Server
 
 ```cpp
-void handle_valid_test_request(const std::shared_ptr<sl::connection>& connection, const Client::TestRequest* const request_body)
+void handle_valid_test_request(const std::shared_ptr<sl::server_session>& connection, const Client::TestRequest* const request_body)
 {
 	LOG_INFO("test request key: 0x{:X}", request_body->key());
 
@@ -146,7 +146,7 @@ sl::response::send(socket, handler, CREATION_WRAPPER(Client::CreateTestResponse)
 
 ## Server connections/requests
 
-The server holds a base `sl::connection` class which implements all of the request header / body parsing, all it requires the developer to implement is the `handle_request` routine:
+The server holds a base `sl::server_session` class which implements all of the request header / body parsing, all it requires the developer to implement is the `handle_request` routine:
 
 ```cpp
 virtual void handle_request(request::request_id_t request_id, std::shared_ptr<std::vector<std::uint8_t>> body_buffer) = 0;
@@ -155,7 +155,7 @@ virtual void handle_request(request::request_id_t request_id, std::shared_ptr<st
 Use `sl::request::request_info` to declare constexpr request descriptors that store the request ID, FlatBuffer type, and handler function pointer. This is linked into a 'router' which automatically processes the request when received.
 
 ```cpp
-void handle_valid_test_request(const std::shared_ptr<sl::connection>& conn, const Client::TestRequest* body)
+void handle_valid_test_request(const std::shared_ptr<sl::server_session>& conn, const Client::TestRequest* body)
 {
 	/* act on body, send response */
 }
@@ -183,7 +183,7 @@ Here is an example with the `boost-asio` connection listener:
 
 ```cpp
 const auto io_context = std::make_shared<boost::asio::io_context>();
-const auto client_listener = std::make_shared<sl::boost_connection_listener<sl::client_connection>>(io_context, client_ssl_context, 2457);
+const auto client_listener = std::make_shared<sl::boost_server<sl::client_connection>>(io_context, client_ssl_context, 2457);
 
 client_listener->async_wait_for_connection();
 ```

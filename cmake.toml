@@ -44,7 +44,7 @@ sources = [
     "shared/request/request.cpp",
     "shared/response/response.cpp",
     "shared/connection/session.cpp",
-    "shared/connection/connection.cpp",
+    "shared/connection/server_session.cpp",
     "shared/connection/listener.cpp",
     "shared/connection/client_session.cpp",
 ]

@@ -2,12 +2,12 @@
 
 namespace sl
 {
-	void connection_listener::set_timeout(const timeout_duration timeout) noexcept
+	void server::set_timeout(const timeout_duration timeout) noexcept
 	{
 		timeout_ = timeout;
 	}
 
-	void connection_listener::add_connection(std::shared_ptr<connection> connection)
+	void server::add_connection(std::shared_ptr<server_session> connection)
 	{
 		if (timeout_ != timeout_duration::zero())
 		{
@@ -36,26 +36,26 @@ namespace sl
 		);
 	}
 
-	void connection_listener::remove_connection(connection* const connection)
+	void server::remove_connection(server_session* const connection)
 	{
 		const std::lock_guard lock(connections_mutex_);
 
 		std::erase_if(connections_,
-			[connection](const std::shared_ptr<sl::connection>& entry)
+			[connection](const std::shared_ptr<sl::server_session>& entry)
 			{
 				return entry.get() == connection;
 			}
 		);
 	}
 
-	std::size_t connection_listener::conn_count() const noexcept
+	std::size_t server::conn_count() const noexcept
 	{
 		const std::lock_guard lock(connections_mutex_);
 
 		return connections_.size();
 	}
 
-	void connection_listener::stop()
+	void server::stop()
 	{
 		const std::lock_guard lock(connections_mutex_);
 

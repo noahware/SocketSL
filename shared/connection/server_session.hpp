@@ -10,12 +10,12 @@
 
 namespace sl
 {
-	class connection_listener;
+	class server;
 
-	class connection : public session
+	class server_session : public session
 	{
 	public:
-		explicit connection(std::unique_ptr<sl::socket> socket, std::shared_ptr<connection_listener> parent_listener) noexcept
+		explicit server_session(std::unique_ptr<sl::socket> socket, std::shared_ptr<server> parent_listener) noexcept
 				:	session(std::move(socket)),
 					parent_listener_(std::move(parent_listener)) {}
 
@@ -31,6 +31,6 @@ namespace sl
 		void on_message(message_id_t type, body_buffer_t body) override;
 		void on_error() override;
 
-		std::shared_ptr<connection_listener> parent_listener_;
+		std::shared_ptr<server> parent_listener_;
 	};
 }

@@ -32,7 +32,7 @@ std::int32_t main()
 
 		boost::asio::thread_pool pool(std::thread::hardware_concurrency());
 
-		const auto client_listener = std::make_shared<sl::boost_connection_listener<sl::client_connection>>(
+		const auto client_listener = std::make_shared<sl::boost_server<sl::client_connection>>(
 			pool.get_executor(), client_ssl_context, 2457);
 
 		client_listener->set_timeout(std::chrono::seconds(10));
