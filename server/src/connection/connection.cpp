@@ -2,7 +2,7 @@
 #include "listener.hpp"
 #include <serialisation/serialisation.hpp>
 #include <response/response.hpp>
-#include <request/request_handler.hpp>
+#include <router/router.hpp>
 #include <endian/endian.hpp>
 #include <schema/schema.hpp>
 
@@ -133,6 +133,7 @@ namespace sl
 			constexpr std::uint64_t response_key = 0x56789;
 
 			response::send(connection->socket(),
+				Client::ResponseId_Test,
 				[](const bool is_valid)
 				{
 					if (is_valid)
@@ -147,9 +148,9 @@ namespace sl
 				CREATION_WRAPPER(Client::CreateTestResponse), response_key);
 		}
 
-		constexpr request::request_info<Client::TestRequest> test_request{Client::RequestId_Test, handle_valid_test_request};
+		constexpr message_info<Client::TestRequest, connection> test_request{Client::RequestId_Test, handle_valid_test_request};
 
-		using router = request::request_router<test_request>;
+		using router = message_router<test_request>;
 	}
 
 	void client_connection::handle_request(const request::request_id_t request_id, const std::shared_ptr<std::vector<std::uint8_t>> body_buffer)

@@ -1,6 +1,19 @@
+table ResponseHeader
+{
+    type: uint8;
+    body_size: uint64;
+}
+
 namespace Client;
+
+enum ResponseId : uint8
+{
+    Test = 0
+}
 
 table TestResponse
 {
     key: uint64;
 }
+
+root_type ResponseHeader;

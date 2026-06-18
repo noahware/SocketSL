@@ -48,6 +48,11 @@ namespace sl
 		);
 	}
 
+	std::size_t connection_listener::conn_count() const noexcept
+	{
+		return connections_.size();
+	}
+
 	void connection_listener::stop()
 	{
 		const std::lock_guard lock(connections_mutex_);

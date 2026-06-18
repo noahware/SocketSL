@@ -114,6 +114,9 @@ link-libraries = ["socketsl"]
 
 [target.client]
 type = "executable"
-sources = ["client/src/main.cpp"]
+sources = [
+    "client/src/main.cpp",
+    "client/src/client_session.cpp",
+]
 include-directories = ["client/src"]
 link-libraries = ["socketsl"]

@@ -23,9 +23,21 @@ namespace sl
 		void add_connection(std::shared_ptr<connection> connection);
 		void remove_connection(connection* connection);
 
+		template <class Fn>
+		void for_each_conn(Fn&& fn)
+		{
+			const std::lock_guard lock(connections_mutex_);
+			for (const auto& conn : connections_)
+			{
+				fn(conn);
+			}
+		}
+
+		[[nodiscard]] std::size_t conn_count() const noexcept;
+
 	protected:
 		timeout_duration timeout_{};
-		std::mutex connections_mutex_;
+		mutable std::mutex connections_mutex_;
 		std::vector<std::shared_ptr<connection>> connections_;
 	};
 

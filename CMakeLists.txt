@@ -148,6 +148,7 @@ add_executable(client)
 
 target_sources(client PRIVATE
     client/src/main.cpp
+    client/src/client_session.cpp
 )
 
 target_include_directories(client PRIVATE
