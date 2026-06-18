@@ -23,7 +23,7 @@ namespace sl
 		return *socket_;
 	}
 
-	bool session::connect(const std::string_view host, const std::string_view service)
+	bool session::connect(const std::string_view host, const std::string_view service) const
 	{
 		return socket_->connect(host, service);
 	}
@@ -77,7 +77,7 @@ namespace sl
 
 	void session::read_frame_size()
 	{
-		auto frame_size = std::make_shared<frame_size_t>();
+		const auto frame_size = std::make_shared<frame_size_t>();
 
 		socket_->async_read({reinterpret_cast<std::uint8_t*>(frame_size.get()), sizeof(frame_size_t)},
 			[self = shared_from_this(), frame_size](const bool is_valid)
@@ -98,7 +98,7 @@ namespace sl
 
 	void session::read_header(const std::size_t header_size)
 	{
-		auto header_buffer = std::make_shared<std::vector<std::uint8_t>>(header_size);
+		const auto header_buffer = std::make_shared<std::vector<std::uint8_t>>(header_size);
 
 		socket_->async_read(*header_buffer,
 			[self = shared_from_this(), header_buffer](const bool is_valid)
@@ -131,7 +131,7 @@ namespace sl
 
 	void session::read_body(const message_id_t type, const std::size_t body_size)
 	{
-		auto body_buffer = std::make_shared<std::vector<std::uint8_t>>(body_size);
+		const auto body_buffer = std::make_shared<std::vector<std::uint8_t>>(body_size);
 
 		socket_->async_read(*body_buffer,
 			[self = shared_from_this(), type, body_buffer](const bool is_valid)

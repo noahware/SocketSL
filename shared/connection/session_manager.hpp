@@ -24,7 +24,7 @@ namespace sl
 		void remove_session(session* sess);
 
 		template <class Fn>
-		void for_each_session(Fn&& fn)
+		void for_each_session(Fn&& fn) const
 		{
 			const std::lock_guard lock(sessions_mutex_);
 

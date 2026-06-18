@@ -83,22 +83,22 @@ namespace sl
 
 		void set_timeout(timeout_duration timeout) override;
 
-		bool connect(std::string_view host, std::string_view service) override;
-		bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
+		[[nodiscard]] bool connect(std::string_view host, std::string_view service) override;
+		[[nodiscard]] bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
 
 		void close() override;
 
-		bool handshake(handshake_type type) override;
+		[[nodiscard]] bool handshake(handshake_type type) override;
 		void async_handshake(handshake_type type, const async_callback_t& handler) override;
 
-		bool read(std::span<std::uint8_t> buffer) override;
+		[[nodiscard]] bool read(std::span<std::uint8_t> buffer) override;
 		void async_read(std::span<std::uint8_t> buffer, const async_callback_t& handler) override;
 
-		bool write(std::span<const std::uint8_t> buffer) override;
+		[[nodiscard]] bool write(std::span<const std::uint8_t> buffer) override;
 		void async_write(std::span<const std::uint8_t> buffer, const async_callback_t& handler) override;
 
-		std::uint32_t ipv4_address() const override;
-		std::uint16_t port() const override;
+		[[nodiscard]] std::uint32_t ipv4_address() const override;
+		[[nodiscard]] std::uint16_t port() const override;
 
 	protected:
 		void start_deadline();

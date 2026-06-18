@@ -100,8 +100,10 @@ namespace sl
 	{
 		auto& lowest_layer = stream_->lowest_layer();
 
-		lowest_layer.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-		lowest_layer.close();
+		boost::system::error_code error_code = { };
+
+		lowest_layer.shutdown(boost::asio::ip::tcp::socket::shutdown_both, error_code);
+		lowest_layer.close(error_code);
 	}
 
 	bool boost_tcp_socket::handshake(const handshake_type type)

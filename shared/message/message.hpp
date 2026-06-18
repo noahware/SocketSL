@@ -29,7 +29,7 @@ namespace sl::msg
 	void async_send_buffer(sl::socket& socket, const std::shared_ptr<std::vector<std::uint8_t>>& buffer, std::size_t header_size, const async_callback_t& handler);
 
 	// synchronous receive of one framed message; returns the message id
-	message_id_t recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
+	[[nodiscard]] message_id_t recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
 
 	template <class CreateFn, class... Args>
 	[[nodiscard]] message_t make(const message_id_t id, CreateFn&& create_fn, Args&&... args)
