@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <span>
+#include <string>
 #include <type_traits>
 
 namespace sl
@@ -46,6 +47,7 @@ namespace sl
 
 		[[nodiscard]] virtual std::uint32_t ipv4_address() const = 0;
 		[[nodiscard]] virtual std::uint16_t port() const = 0;
+		[[nodiscard]] virtual std::string remote_address() const = 0;
 
 		template <class T>
 			requires std::is_trivially_copyable_v<T>
@@ -80,7 +82,10 @@ namespace sl
 		explicit boost_tcp_socket(executor_type executor, asio_socket_type asio_socket, std::shared_ptr<boost_ssl_context> ssl_context)
 			:	executor_(std::move(executor)),
 				ssl_context_(std::move(ssl_context)),
-				stream_(std::make_unique<asio_stream_type>(std::move(asio_socket), ssl_context_->native_handle())) {}
+				stream_(std::make_unique<asio_stream_type>(std::move(asio_socket), ssl_context_->native_handle()))
+		{
+			capture_remote_endpoint();
+		}
 
 		void set_timeout(timeout_duration timeout) override;
 
@@ -101,14 +106,14 @@ namespace sl
 
 		[[nodiscard]] std::uint32_t ipv4_address() const override;
 		[[nodiscard]] std::uint16_t port() const override;
+		[[nodiscard]] std::string remote_address() const override;
 
 	protected:
 		void start_deadline();
 		void cancel_deadline();
 
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
-		[[nodiscard]] asio_endpoint_type remote_endpoint() const;
-		[[nodiscard]] asio_endpoint_type local_endpoint() const;
+		void capture_remote_endpoint();
 
 		[[nodiscard]] static asio_handshake_type to_asio_handshake_type(handshake_type type) noexcept;
 
@@ -117,5 +122,6 @@ namespace sl
 		std::unique_ptr<asio_stream_type> stream_;
 		timeout_duration timeout_{};
 		std::unique_ptr<boost::asio::steady_timer> timer_;
+		asio_endpoint_type remote_endpoint_{};
 	};
 }

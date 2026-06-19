@@ -107,9 +107,14 @@ namespace sl
 				}
 
 				boost::asio::async_connect(stream_->lowest_layer(), endpoints,
-					[this, handler](const boost::system::error_code& connect_error_code, const asio_endpoint_type&)
+					[this, handler](const boost::system::error_code& connect_error_code, const asio_endpoint_type& endpoint)
 					{
 						cancel_deadline();
+
+						if (!connect_error_code)
+						{
+							remote_endpoint_ = endpoint;
+						}
 
 						handler(!connect_error_code);
 					}
@@ -203,18 +208,17 @@ namespace sl
 
 	std::uint32_t boost_tcp_socket::ipv4_address() const
 	{
-		const asio_endpoint_type remote = remote_endpoint();
-		const auto address = remote.address();
-		const auto ipv4 = address.to_v4();
-
-		return ipv4.to_uint();
+		return remote_endpoint_.address().to_v4().to_uint();
 	}
 
 	std::uint16_t boost_tcp_socket::port() const
 	{
-		const asio_endpoint_type endpoint = local_endpoint();
+		return remote_endpoint_.port();
+	}
 
-		return endpoint.port();
+	std::string boost_tcp_socket::remote_address() const
+	{
+		return remote_endpoint_.address().to_string();
 	}
 
 	std::optional<boost_tcp_socket::resolver_type::results_type> boost_tcp_socket::resolve_host(const std::string_view host, const std::string_view service) const
@@ -232,18 +236,16 @@ namespace sl
 		return endpoints;
 	}
 
-	boost_tcp_socket::asio_endpoint_type boost_tcp_socket::remote_endpoint() const
+	void boost_tcp_socket::capture_remote_endpoint()
 	{
-		const auto& lowest_layer = stream_->lowest_layer();
+		boost::system::error_code error_code = { };
 
-		return lowest_layer.remote_endpoint();
-	}
+		const asio_endpoint_type endpoint = stream_->lowest_layer().remote_endpoint(error_code);
 
-	boost_tcp_socket::asio_endpoint_type boost_tcp_socket::local_endpoint() const
-	{
-		const auto& lowest_layer = stream_->lowest_layer();
-
-		return lowest_layer.local_endpoint();
+		if (!error_code)
+		{
+			remote_endpoint_ = endpoint;
+		}
 	}
 
 	boost_tcp_socket::asio_handshake_type boost_tcp_socket::to_asio_handshake_type(const handshake_type type) noexcept

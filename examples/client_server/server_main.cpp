@@ -82,8 +82,8 @@ std::int32_t main()
 
 		manager->set_timeout(std::chrono::seconds(10));
 
-		manager->on_connect([](const std::shared_ptr<sl::session>&) { LOG_INFO("client connected"); });
-		manager->on_disconnect([](const std::shared_ptr<sl::session>&) { LOG_INFO("client disconnected"); });
+		manager->on_connect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("client connected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
+		manager->on_disconnect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("client disconnected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
 
 		manager->async_wait_for_connection();
 

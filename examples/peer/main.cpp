@@ -142,8 +142,8 @@ std::int32_t main(int argc, char** argv)
 
 		manager->set_timeout(std::chrono::seconds(10));
 
-		manager->on_connect([](const std::shared_ptr<sl::session>&) { LOG_INFO("peer connected"); });
-		manager->on_disconnect([](const std::shared_ptr<sl::session>&) { LOG_INFO("peer disconnected"); });
+		manager->on_connect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("peer connected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
+		manager->on_disconnect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("peer disconnected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
 
 		manager->async_wait_for_connection();
 
