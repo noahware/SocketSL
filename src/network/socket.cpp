@@ -26,6 +26,16 @@ namespace sl
 		timeout_ = timeout;
 	}
 
+	void boost_tcp_socket::set_max_message_size(const std::size_t max_size)
+	{
+		max_message_size_ = max_size;
+	}
+
+	std::size_t boost_tcp_socket::max_message_size() const
+	{
+		return max_message_size_;
+	}
+
 	void boost_tcp_socket::start_deadline()
 	{
 		if (timeout_ == timeout_duration::zero())

@@ -28,6 +28,11 @@ namespace sl
 
 		virtual void set_timeout(timeout_duration timeout) = 0;
 
+		// receive-side cap on a single message's header and body; 0 = unlimited (the default)
+		static constexpr std::size_t default_max_message_size = 0;
+		virtual void set_max_message_size(std::size_t max_size) = 0;
+		[[nodiscard]] virtual std::size_t max_message_size() const = 0;
+
 		[[nodiscard]] virtual bool connect(std::string_view host, std::string_view service) = 0;
 		[[nodiscard]] virtual bool connect(std::uint32_t ipv4_address, std::uint16_t port) = 0;
 		virtual void async_connect(std::string_view host, std::string_view service, const async_callback_t& handler) = 0;
@@ -88,6 +93,8 @@ namespace sl
 		}
 
 		void set_timeout(timeout_duration timeout) override;
+		void set_max_message_size(std::size_t max_size) override;
+		[[nodiscard]] std::size_t max_message_size() const override;
 
 		[[nodiscard]] bool connect(std::string_view host, std::string_view service) override;
 		[[nodiscard]] bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
@@ -121,6 +128,7 @@ namespace sl
 		std::shared_ptr<boost_ssl_context> ssl_context_;
 		std::unique_ptr<asio_stream_type> stream_;
 		timeout_duration timeout_{};
+		std::size_t max_message_size_ = default_max_message_size;
 		std::unique_ptr<boost::asio::steady_timer> timer_;
 		asio_endpoint_type remote_endpoint_{};
 	};

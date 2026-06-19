@@ -67,6 +67,8 @@ namespace sl::msg
 
 	std::optional<message_id_t> recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer)
 	{
+		const std::size_t max_message_size = socket.max_message_size();
+
 		frame_size_t le_header_size = 0;
 		if (!socket.read(le_header_size))
 		{
@@ -74,6 +76,11 @@ namespace sl::msg
 		}
 
 		const std::size_t header_size = endian::from_little(le_header_size);
+
+		if (max_message_size != 0 && header_size > max_message_size)
+		{
+			return std::nullopt;
+		}
 
 		std::vector<std::uint8_t> header_buffer(header_size);
 		if (!socket.read(header_buffer))
@@ -89,6 +96,11 @@ namespace sl::msg
 		const auto* header = serialisation::deserialise<MessageHeader>(header_buffer);
 		const message_id_t id = header->type();
 		const std::size_t body_size = header->body_size();
+
+		if (max_message_size != 0 && body_size > max_message_size)
+		{
+			return std::nullopt;
+		}
 
 		body_buffer.resize(body_size);
 		if (!socket.read(body_buffer))

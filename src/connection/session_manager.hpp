@@ -16,6 +16,7 @@ namespace sl
 		virtual ~session_manager() = default;
 
 		void set_timeout(timeout_duration timeout) noexcept;
+		void set_max_message_size(std::size_t max_size) noexcept;
 
 		void on_connect(session_callback_t callback);
 		void on_disconnect(session_callback_t callback);
@@ -44,6 +45,7 @@ namespace sl
 		void register_and_start(std::shared_ptr<session> sess);
 
 		timeout_duration timeout_{};
+		std::size_t max_message_size_{};
 		session_callback_t on_connect_;
 		session_callback_t on_disconnect_;
 		mutable std::mutex sessions_mutex_;

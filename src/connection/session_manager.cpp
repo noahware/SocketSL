@@ -9,6 +9,11 @@ namespace sl
 		timeout_ = timeout;
 	}
 
+	void session_manager::set_max_message_size(const std::size_t max_size) noexcept
+	{
+		max_message_size_ = max_size;
+	}
+
 	void session_manager::on_connect(session_callback_t callback)
 	{
 		on_connect_ = std::move(callback);
@@ -41,6 +46,11 @@ namespace sl
 			sess->socket().set_timeout(timeout_);
 		}
 
+		if (max_message_size_ != 0)
+		{
+			sess->socket().set_max_message_size(max_message_size_);
+		}
+
 		sess->async_handshake(sl::socket::handshake_type::server,
 			[this, sess](const bool is_valid)
 			{
@@ -57,6 +67,11 @@ namespace sl
 		if (timeout_ != timeout_duration::zero())
 		{
 			sess->socket().set_timeout(timeout_);
+		}
+
+		if (max_message_size_ != 0)
+		{
+			sess->socket().set_max_message_size(max_message_size_);
 		}
 
 		sess->async_connect(host, service,

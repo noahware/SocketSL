@@ -100,6 +100,14 @@ namespace sl
 
 	void session::read_header(const std::size_t header_size)
 	{
+		const std::size_t max_message_size = socket_->max_message_size();
+		if (max_message_size != 0 && header_size > max_message_size)
+		{
+			on_error();
+
+			return;
+		}
+
 		const auto header_buffer = std::make_shared<std::vector<std::uint8_t>>(header_size);
 
 		socket_->async_read(*header_buffer,
@@ -129,6 +137,14 @@ namespace sl
 
 	void session::read_body(const message_id_t type, const std::size_t body_size)
 	{
+		const std::size_t max_message_size = socket_->max_message_size();
+		if (max_message_size != 0 && body_size > max_message_size)
+		{
+			on_error();
+
+			return;
+		}
+
 		const auto body_buffer = std::make_shared<std::vector<std::uint8_t>>(body_size);
 
 		socket_->async_read(*body_buffer,

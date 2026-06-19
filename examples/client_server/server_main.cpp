@@ -67,6 +67,7 @@ std::int32_t main()
 			pool.get_executor(), client_ssl_context, 2457);
 
 		manager->set_timeout(std::chrono::seconds(10));
+		manager->set_max_message_size(1024 * 1024);
 
 		manager->on_connect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("client connected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
 		manager->on_disconnect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("client disconnected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });
