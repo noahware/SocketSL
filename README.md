@@ -11,7 +11,7 @@ A modern C++ client-server model built using SSL sockets. It can be used both sy
 ```cpp
 void send_test_request(sl::socket& socket, const std::uint64_t request_key)
 {
-	sl::msg::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+	sl::msg::send<Client::CreateTestRequest>(socket, Client::RequestId_Test, request_key);
 }
 
 void receive_test_response(sl::socket& socket)
@@ -48,16 +48,7 @@ void handle_valid_test_request(const std::shared_ptr<sl::session>& sess, const C
 
 	constexpr std::uint64_t response_key = 0x56789;
 
-	sl::msg::async_send(sess->socket(),
-		Client::ResponseId_Test,
-		[](const bool is_valid)
-		{
-			if (is_valid)
-			{
-				LOG_INFO("successfully sent response");
-			}
-		},
-		CREATION_WRAPPER(Client::CreateTestResponse), response_key);
+	sl::msg::async_send<Client::CreateTestResponse>(sess->socket(), Client::ResponseId_Test, response_key);
 }
 
 constexpr sl::message_info<Client::TestRequest, sl::session> test_request{Client::RequestId_Test, handle_valid_test_request};
@@ -107,8 +98,7 @@ manager->connect("127.0.0.1", "5002");                 // dial an outbound peer
 // broadcast to every connected peer (inbound + outbound), e.g. on a timer
 manager->for_each_session([](const std::shared_ptr<sl::session>& sess)
 {
-	sl::msg::async_send(sess->socket(), Peer::MessageId_Random, [](bool){},
-	                    CREATION_WRAPPER(Peer::CreateRandomNumber), 0x1234);
+	sl::msg::async_send<Peer::CreateRandomNumber>(sess->socket(), Peer::MessageId_Random, 0x1234);
 });
 ```
 
@@ -179,10 +169,13 @@ Generic templates wrap serialisation for requests and responses, so you never ca
 
 ```cpp
 // client: send a request in one call
-sl::msg::send(socket, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), key);
+sl::msg::send<Client::CreateTestRequest>(socket, Client::RequestId_Test, key);
 
-// server: send a response in one call
-sl::msg::async_send(socket, Client::ResponseId_Test, handler, CREATION_WRAPPER(Client::CreateTestResponse), key);
+// server: send a response in one call (fire and forget)
+sl::msg::async_send<Client::CreateTestResponse>(socket, Client::ResponseId_Test, key);
+
+// an optional completion handler -- void() or void(bool is_valid) -- may precede the body args
+sl::msg::async_send<Client::CreateTestResponse>(socket, Client::ResponseId_Test, [](bool ok) { /* ... */ }, key);
 ```
 
 ## Sessions / requests

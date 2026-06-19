@@ -2,7 +2,6 @@
 
 #include <message/message.hpp>
 #include <router/router.hpp>
-#include <schema/schema.hpp>
 #include <schema/request_generated.h>
 #include <schema/response_generated.h>
 
@@ -45,7 +44,7 @@ namespace
 		LOG_INFO("handshake was successful");
 
 		constexpr std::uint64_t request_key = 0x12345;
-		sl::msg::send(sock, Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+		sl::msg::send<Client::CreateTestRequest>(sock, Client::RequestId_Test, request_key);
 
 		std::vector<std::uint8_t> response_buffer = {};
 		const auto* response = sl::msg::recv<Client::TestResponse>(sock, response_buffer);
@@ -103,7 +102,7 @@ namespace
 		LOG_INFO("handshake was successful");
 
 		constexpr std::uint64_t request_key = 0x12345;
-		sl::msg::send(session->socket(), Client::RequestId_Test, CREATION_WRAPPER(Client::CreateTestRequest), request_key);
+		sl::msg::send<Client::CreateTestRequest>(session->socket(), Client::RequestId_Test, request_key);
 
 		session->start();
 		io_context.run();

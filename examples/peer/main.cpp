@@ -1,7 +1,6 @@
 #include <connection/session_manager.hpp>
 #include <message/message.hpp>
 #include <router/router.hpp>
-#include <schema/schema.hpp>
 #include <schema/peer_generated.h>
 #include <network/socket.hpp>
 
@@ -100,9 +99,7 @@ namespace
 			manager_->for_each_session(
 				[value](const std::shared_ptr<sl::session>& sess)
 				{
-					sl::msg::async_send(sess->socket(), Peer::MessageId_Random,
-						[](const bool) { },
-						CREATION_WRAPPER(Peer::CreateRandomNumber), value);
+					sl::msg::async_send<Peer::CreateRandomNumber>(sess->socket(), Peer::MessageId_Random, value);
 				}
 			);
 		}

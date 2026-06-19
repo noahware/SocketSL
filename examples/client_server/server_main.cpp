@@ -3,7 +3,6 @@
 
 #include <message/message.hpp>
 #include <router/router.hpp>
-#include <schema/schema.hpp>
 #include <schema/request_generated.h>
 #include <schema/response_generated.h>
 
@@ -28,20 +27,7 @@ namespace
 
 		constexpr std::uint64_t response_key = 0x56789;
 
-		sl::msg::async_send(sess->socket(),
-			Client::ResponseId_Test,
-			[](const bool is_valid)
-			{
-				if (is_valid)
-				{
-					LOG_INFO("successfully sent response");
-				}
-				else
-				{
-					LOG_ERR("failed to send response");
-				}
-			},
-			CREATION_WRAPPER(Client::CreateTestResponse), response_key);
+		sl::msg::async_send<Client::CreateTestResponse>(sess->socket(), Client::ResponseId_Test, response_key);
 	}
 
 	constexpr sl::message_info<Client::TestRequest, sl::session> test_request{Client::RequestId_Test, handle_valid_test_request};

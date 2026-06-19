@@ -1,6 +1,5 @@
 #include "message.hpp"
 
-#include "../schema/schema.hpp"
 #include "../endian/endian.hpp"
 
 #include <schema/message_generated.h>
@@ -23,7 +22,7 @@ namespace sl::msg
 
 	std::vector<std::uint8_t> make_header(const message_id_t id, const std::size_t body_size)
 	{
-		return serialisation::serialise(CREATION_WRAPPER(CreateMessageHeader), id, body_size);
+		return serialisation::serialise(serialisation::lift<CreateMessageHeader>(), id, body_size);
 	}
 
 	message_t make_from_body(const message_id_t id, const std::span<const std::uint8_t> body)
@@ -53,7 +52,10 @@ namespace sl::msg
 		socket.async_write(*buffer,
 			[handler, buffer](const bool is_valid)
 			{
-				handler(is_valid);
+				if (handler)
+				{
+					handler(is_valid);
+				}
 			}
 		);
 	}

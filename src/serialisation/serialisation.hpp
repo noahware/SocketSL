@@ -32,6 +32,17 @@ namespace sl::serialisation
 		return serialise(builder, create_fn, std::forward<Args>(args)...);
 	}
 
+	// lift a flatc CreateX free function into a callable for serialise<>;
+	// passing it as a template argument keeps the call site free of wrapper boilerplate
+	template <auto CreateFn>
+	[[nodiscard]] auto lift()
+	{
+		return []<class ...Args>(flatbuffers::FlatBufferBuilder& builder, Args&&... args)
+		{
+			return CreateFn(builder, std::forward<Args>(args)...);
+		};
+	}
+
 	template <class T>
 	[[nodiscard]] const T* deserialise(std::span<const std::uint8_t> buffer) noexcept
 	{

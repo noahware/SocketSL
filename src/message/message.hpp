@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace sl::msg
@@ -17,6 +19,10 @@ namespace sl::msg
 		std::size_t header_size = 0;
 		std::vector<std::uint8_t> buffer = {};
 	};
+
+	// a completion handler is any callable invocable as void() or void(bool is_valid)
+	template <class T>
+	concept completion_handler = std::is_invocable_v<T> || std::is_invocable_v<T, bool>;
 
 	[[nodiscard]] std::vector<std::uint8_t> make_header(message_id_t id, std::size_t body_size);
 
@@ -31,28 +37,61 @@ namespace sl::msg
 	// synchronous receive of one framed message; returns the message id
 	[[nodiscard]] message_id_t recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
 
-	template <class CreateFn, class... Args>
-	[[nodiscard]] message_t make(const message_id_t id, CreateFn&& create_fn, Args&&... args)
+	namespace detail
 	{
-		const auto body = serialisation::serialise(std::forward<CreateFn>(create_fn), std::forward<Args>(args)...);
+		template <class... Args>
+		inline constexpr bool leading_completion_handler = false;
+
+		template <class First, class... Rest>
+		inline constexpr bool leading_completion_handler<First, Rest...> = completion_handler<First>;
+
+		// adapt a void() or void(bool) handler into the uniform async_callback_t
+		template <completion_handler Handler>
+		[[nodiscard]] async_callback_t adapt(Handler handler)
+		{
+			if constexpr (std::is_invocable_v<Handler, bool>)
+			{
+				return async_callback_t(std::move(handler));
+			}
+			else
+			{
+				return [handler = std::move(handler)](bool) { handler(); };
+			}
+		}
+	}
+
+	template <auto CreateFn, class... Args>
+	[[nodiscard]] message_t make(const message_id_t id, Args&&... args)
+	{
+		const auto body = serialisation::serialise(serialisation::lift<CreateFn>(), std::forward<Args>(args)...);
 		return make_from_body(id, body);
 	}
 
 	// synchronous send
-	template <class CreateFn, class... Args>
-	void send(sl::socket& socket, const message_id_t id, CreateFn&& create_fn, Args&&... args)
+	template <auto CreateFn, class... Args>
+	void send(sl::socket& socket, const message_id_t id, Args&&... args)
 	{
-		const auto [header_size, buffer] = make(id, std::forward<CreateFn>(create_fn), std::forward<Args>(args)...);
+		const auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
 		send_buffer(socket, buffer, header_size);
 	}
 
-	// asynchronous send
-	template <class CreateFn, class... Args>
-	void async_send(sl::socket& socket, const message_id_t id, const async_callback_t& handler, CreateFn&& create_fn, Args&&... args)
+	// asynchronous send with a completion handler -- void() or void(bool is_valid)
+	template <auto CreateFn, completion_handler Handler, class... Args>
+	void async_send(sl::socket& socket, const message_id_t id, Handler handler, Args&&... args)
 	{
-		auto [header_size, buffer] = make(id, std::forward<CreateFn>(create_fn), std::forward<Args>(args)...);
+		auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
 		auto buffer_ptr = std::make_shared<std::vector<std::uint8_t>>(std::move(buffer));
-		async_send_buffer(socket, buffer_ptr, header_size, handler);
+		async_send_buffer(socket, buffer_ptr, header_size, detail::adapt(std::move(handler)));
+	}
+
+	// asynchronous send, fire and forget (no completion handler)
+	template <auto CreateFn, class... Args>
+		requires (!detail::leading_completion_handler<Args...>)
+	void async_send(sl::socket& socket, const message_id_t id, Args&&... args)
+	{
+		auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
+		auto buffer_ptr = std::make_shared<std::vector<std::uint8_t>>(std::move(buffer));
+		async_send_buffer(socket, buffer_ptr, header_size, async_callback_t{});
 	}
 
 	// synchronous receive of one framed message, then deserialise
