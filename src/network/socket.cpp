@@ -36,20 +36,22 @@ namespace sl
 		return max_message_size_;
 	}
 
-	void boost_tcp_socket::start_deadline()
+	void boost_tcp_socket::reset_idle_timer()
 	{
 		if (timeout_ == timeout_duration::zero())
 		{
 			return;
 		}
 
-		if (!timer_)
+		if (!idle_timer_)
 		{
-			timer_ = std::make_unique<boost::asio::steady_timer>(executor_);
+			idle_timer_ = std::make_unique<boost::asio::steady_timer>(executor_);
 		}
 
-		timer_->expires_after(timeout_);
-		timer_->async_wait(
+		// expires_after cancels the previous wait (its handler fires with operation_aborted),
+		// so each call just restarts the inactivity countdown
+		idle_timer_->expires_after(timeout_);
+		idle_timer_->async_wait(
 			[this](const boost::system::error_code& ec)
 			{
 				if (!ec)
@@ -58,14 +60,6 @@ namespace sl
 				}
 			}
 		);
-	}
-
-	void boost_tcp_socket::cancel_deadline()
-	{
-		if (timer_)
-		{
-			timer_->cancel();
-		}
 	}
 
 	bool boost_tcp_socket::connect(const std::string_view host, const std::string_view service)
@@ -100,7 +94,7 @@ namespace sl
 
 	void boost_tcp_socket::async_connect(const std::string_view host, const std::string_view service, const async_callback_t& handler)
 	{
-		start_deadline();
+		reset_idle_timer();
 
 		const auto resolver = std::make_shared<resolver_type>(executor_);
 
@@ -109,8 +103,6 @@ namespace sl
 			{
 				if (error_code)
 				{
-					cancel_deadline();
-
 					handler(false);
 
 					return;
@@ -119,8 +111,6 @@ namespace sl
 				boost::asio::async_connect(stream_->lowest_layer(), endpoints,
 					[this, handler](const boost::system::error_code& connect_error_code, const asio_endpoint_type& endpoint)
 					{
-						cancel_deadline();
-
 						if (!connect_error_code)
 						{
 							remote_endpoint_ = endpoint;
@@ -156,14 +146,17 @@ namespace sl
 
 	void boost_tcp_socket::async_handshake(const handshake_type type, const async_callback_t& handler)
 	{
-		start_deadline();
+		reset_idle_timer();
 
 		const asio_handshake_type asio_type = to_asio_handshake_type(type);
 
 		stream_->async_handshake(asio_type,
 			[this, handler](const boost::system::error_code& error_code)
 			{
-				cancel_deadline();
+				if (!error_code)
+				{
+					reset_idle_timer();
+				}
 
 				handler(!error_code);
 			}
@@ -181,12 +174,14 @@ namespace sl
 
 	void boost_tcp_socket::async_read(const std::span<std::uint8_t> buffer, const async_callback_t& handler)
 	{
-		start_deadline();
-
 		boost::asio::async_read(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
 			[this, handler](const boost::system::error_code& error_code, const std::size_t)
 			{
-				cancel_deadline();
+				// a completed read means the peer is alive -- restart the inactivity countdown
+				if (!error_code)
+				{
+					reset_idle_timer();
+				}
 
 				handler(!error_code);
 			}
@@ -204,14 +199,54 @@ namespace sl
 
 	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> buffer, const async_callback_t& handler)
 	{
-		start_deadline();
+		bool idle = false;
+
+		{
+			const std::lock_guard lock(write_mutex_);
+
+			idle = write_queue_.empty();
+			write_queue_.push_back({buffer, handler});
+		}
+
+		// only the writer that found the queue idle starts the chain; the rest just queued
+		if (idle)
+		{
+			write_next();
+		}
+	}
+
+	void boost_tcp_socket::write_next()
+	{
+		std::span<const std::uint8_t> buffer;
+
+		{
+			const std::lock_guard lock(write_mutex_);
+			buffer = write_queue_.front().buffer;
+		}
 
 		boost::asio::async_write(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
-			[this, handler](const boost::system::error_code& error_code, const std::size_t)
+			[this](const boost::system::error_code& error_code, const std::size_t)
 			{
-				cancel_deadline();
+				async_callback_t handler;
+				bool more = false;
 
-				handler(!error_code);
+				{
+					const std::lock_guard lock(write_mutex_);
+
+					handler = std::move(write_queue_.front().handler);
+					write_queue_.pop_front();
+					more = !write_queue_.empty();
+				}
+
+				if (handler)
+				{
+					handler(!error_code);
+				}
+
+				if (more)
+				{
+					write_next();
+				}
 			}
 		);
 	}

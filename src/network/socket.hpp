@@ -4,6 +4,8 @@
 #include "ssl.hpp"
 
 #include <chrono>
+#include <deque>
+#include <mutex>
 #include <span>
 #include <string>
 #include <type_traits>
@@ -116,11 +118,22 @@ namespace sl
 		[[nodiscard]] std::string remote_address() const override;
 
 	protected:
-		void start_deadline();
-		void cancel_deadline();
+		// one queued outbound write; the handler keeps the buffer's memory alive until it runs
+		struct pending_write
+		{
+			std::span<const std::uint8_t> buffer;
+			async_callback_t handler;
+		};
+
+		// inactivity deadline: (re)armed whenever the peer makes progress (connect / handshake /
+		// a completed read); if it fires, the peer has gone silent for the timeout and we close
+		void reset_idle_timer();
 
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
 		void capture_remote_endpoint();
+
+		// drains write_queue_ one write at a time so async writes never overlap on the SSL stream
+		void write_next();
 
 		[[nodiscard]] static asio_handshake_type to_asio_handshake_type(handshake_type type) noexcept;
 
@@ -129,7 +142,9 @@ namespace sl
 		std::unique_ptr<asio_stream_type> stream_;
 		timeout_duration timeout_{};
 		std::size_t max_message_size_ = default_max_message_size;
-		std::unique_ptr<boost::asio::steady_timer> timer_;
+		std::unique_ptr<boost::asio::steady_timer> idle_timer_;
 		asio_endpoint_type remote_endpoint_{};
+		std::mutex write_mutex_;
+		std::deque<pending_write> write_queue_;
 	};
 }
