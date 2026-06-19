@@ -28,6 +28,11 @@ namespace sl
 		return socket_->connect(host, service);
 	}
 
+	void session::async_connect(const std::string_view host, const std::string_view service, const async_callback_t& handler) const
+	{
+		socket_->async_connect(host, service, handler);
+	}
+
 	bool session::handshake(const sl::socket::handshake_type type) const
 	{
 		return socket_->handshake(type);

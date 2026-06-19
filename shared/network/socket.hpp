@@ -29,6 +29,7 @@ namespace sl
 
 		[[nodiscard]] virtual bool connect(std::string_view host, std::string_view service) = 0;
 		[[nodiscard]] virtual bool connect(std::uint32_t ipv4_address, std::uint16_t port) = 0;
+		virtual void async_connect(std::string_view host, std::string_view service, const async_callback_t& handler) = 0;
 		virtual void close() = 0;
 
 		[[nodiscard]] virtual bool handshake(handshake_type type) = 0;
@@ -85,6 +86,7 @@ namespace sl
 
 		[[nodiscard]] bool connect(std::string_view host, std::string_view service) override;
 		[[nodiscard]] bool connect(std::uint32_t ipv4_address, std::uint16_t port) override;
+		void async_connect(std::string_view host, std::string_view service, const async_callback_t& handler) override;
 
 		void close() override;
 

@@ -21,6 +21,7 @@ namespace sl
 		virtual void stop();
 
 		void add_session(std::shared_ptr<session> sess);
+		void connect(std::shared_ptr<session> sess, std::string_view host, std::string_view service);
 		void remove_session(session* sess);
 
 		template <class Fn>
@@ -37,6 +38,8 @@ namespace sl
 		[[nodiscard]] std::size_t session_count() const;
 
 	protected:
+		void register_and_start(std::shared_ptr<session> sess);
+
 		timeout_duration timeout_{};
 		mutable std::mutex sessions_mutex_;
 		std::vector<std::shared_ptr<session>> sessions_;

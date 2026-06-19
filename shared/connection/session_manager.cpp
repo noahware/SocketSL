@@ -7,6 +7,16 @@ namespace sl
 		timeout_ = timeout;
 	}
 
+	void session_manager::register_and_start(std::shared_ptr<session> sess)
+	{
+		{
+			const std::lock_guard lock(sessions_mutex_);
+			sessions_.push_back(sess);
+		}
+
+		sess->start();
+	}
+
 	void session_manager::add_session(std::shared_ptr<session> sess)
 	{
 		if (timeout_ != timeout_duration::zero())
@@ -21,17 +31,48 @@ namespace sl
 				{
 					LOG_INFO("handshake was successful");
 
-					{
-						const std::lock_guard lock(sessions_mutex_);
-						sessions_.push_back(sess);
-					}
-
-					sess->start();
+					register_and_start(sess);
 				}
 				else
 				{
 					LOG_ERR("failed to handshake");
 				}
+			}
+		);
+	}
+
+	void session_manager::connect(std::shared_ptr<session> sess, const std::string_view host, const std::string_view service)
+	{
+		if (timeout_ != timeout_duration::zero())
+		{
+			sess->socket().set_timeout(timeout_);
+		}
+
+		sess->async_connect(host, service,
+			[this, sess](const bool connected)
+			{
+				if (!connected)
+				{
+					LOG_ERR("failed to connect to peer");
+
+					return;
+				}
+
+				sess->async_handshake(sl::socket::handshake_type::client,
+					[this, sess](const bool is_valid)
+					{
+						if (is_valid)
+						{
+							LOG_INFO("outbound handshake was successful");
+
+							register_and_start(sess);
+						}
+						else
+						{
+							LOG_ERR("failed to handshake with peer");
+						}
+					}
+				);
 			}
 		);
 	}

@@ -30,6 +30,7 @@ namespace sl
 		[[nodiscard]] sl::socket& socket() const noexcept;
 
 		[[nodiscard]] bool connect(std::string_view host, std::string_view service) const;
+		void async_connect(std::string_view host, std::string_view service, const async_callback_t& handler) const;
 		[[nodiscard]] bool handshake(sl::socket::handshake_type type) const;
 		void async_handshake(sl::socket::handshake_type type, const async_callback_t& handler) const;
 

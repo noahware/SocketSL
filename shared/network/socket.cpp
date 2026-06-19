@@ -96,6 +96,45 @@ namespace sl
 		return !error_code.failed();
 	}
 
+	void boost_tcp_socket::async_connect(const std::string_view host, const std::string_view service, const async_callback_t& handler)
+	{
+		start_deadline();
+
+		const auto resolver = std::make_shared<resolver_type>(executor_);
+
+		resolver->async_resolve(host, service,
+			[this, handler, resolver](const boost::system::error_code& error_code, const resolver_type::results_type& endpoints)
+			{
+				if (error_code)
+				{
+					cancel_deadline();
+
+					LOG_ERR(error_code.what());
+
+					handler(false);
+
+					return;
+				}
+
+				boost::asio::async_connect(stream_->lowest_layer(), endpoints,
+					[this, handler](const boost::system::error_code& connect_error_code, const asio_endpoint_type&)
+					{
+						cancel_deadline();
+
+						const bool is_valid = !connect_error_code;
+
+						if (!is_valid)
+						{
+							LOG_ERR(connect_error_code.what());
+						}
+
+						handler(is_valid);
+					}
+				);
+			}
+		);
+	}
+
 	void boost_tcp_socket::close()
 	{
 		auto& lowest_layer = stream_->lowest_layer();
