@@ -66,6 +66,11 @@ namespace sl
 		void async_wait_for_connection() override;
 		void stop() override;
 
+		using session_manager::connect;
+
+		// convenience: builds the socket + session, dials, and returns the new session
+		std::shared_ptr<SessionT> connect(std::string_view host, std::string_view service, std::shared_ptr<boost_ssl_context> ssl_context);
+
 	protected:
 		executor_type executor_;
 		std::shared_ptr<boost_ssl_context> ssl_context_;
@@ -112,5 +117,16 @@ namespace sl
 		acceptor_->close(ec);
 
 		session_manager::stop();
+	}
+
+	template <class SessionT>
+	std::shared_ptr<SessionT> boost_session_manager<SessionT>::connect(const std::string_view host, const std::string_view service, std::shared_ptr<boost_ssl_context> ssl_context)
+	{
+		auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(ssl_context));
+		auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());
+
+		session_manager::connect(sess, host, service);
+
+		return sess;
 	}
 }

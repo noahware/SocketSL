@@ -1,10 +1,12 @@
 # SocketSL
 
-A modern C++ client-server model built using SSL sockets.
+A modern C++ client-server model built using SSL sockets. It can be used both synchronously or asynchronously.
 
 # Examples
 
-## Client
+## Client-server model
+
+### Client
 
 ```cpp
 void send_test_request(sl::socket& socket, const std::uint64_t request_key)
@@ -37,7 +39,7 @@ void connect_to_server(sl::socket& socket)
 }
 ```
 
-## Server
+### Server
 
 ```cpp
 void handle_valid_test_request(const std::shared_ptr<sl::session>& sess, const Client::TestRequest* const request_body)
@@ -71,6 +73,46 @@ void sl::client_connection::handle_message(const sl::session::message_id_t id, c
 }
 ```
 
+## Peer-to-peer model
+
+```cpp
+void handle_random_number(const std::shared_ptr<sl::session>&, const Peer::RandomNumber* message)
+{
+	LOG_INFO("received random number: {}", message->value());
+}
+
+constexpr sl::message_info<Peer::RandomNumber, sl::session> random_number{Peer::MessageId_Random, handle_random_number};
+
+using peer_router = sl::message_router<random_number>;
+
+// inbound or outbound, every peer connection is the same session
+class peer_session final : public sl::session
+{
+	using session::session;
+
+	void handle_message(const message_id_t id, const body_buffer_t body) override
+	{
+		peer_router::dispatch(id, shared_as<sl::session>(), *body);
+	}
+};
+```
+
+```cpp
+const auto manager = std::make_shared<sl::boost_session_manager<peer_session>>(executor, server_ctx, port);
+
+manager->async_wait_for_connection();                        // accept inbound peers
+
+auto socket = std::make_unique<sl::boost_tcp_socket>(executor, client_ctx);
+auto sess = std::make_shared<peer_session>(std::move(socket), manager);
+manager->connect(sess, "127.0.0.1", "5002");                 // dial an outbound peer
+
+// broadcast to every connected peer (inbound + outbound), e.g. on a timer
+manager->for_each_session([](const std::shared_ptr<sl::session>& sess)
+{
+	sl::msg::async_send(sess->socket(), Peer::MessageId_Random, [](bool){},
+	                    CREATION_WRAPPER(Peer::CreateRandomNumber), 0x1234);
+});
+```
 
 # Specification
 

@@ -162,10 +162,7 @@ std::int32_t main(int argc, char** argv)
 
 			LOG_INFO("connecting to peer {}:{}", host, service);
 
-			auto socket = std::make_unique<sl::boost_tcp_socket>(pool.get_executor(), client_context);
-			auto sess = std::make_shared<peer_session>(std::move(socket), manager);
-
-			manager->connect(sess, host, service);
+			manager->connect(host, service, client_context);
 		}
 
 		const auto random_broadcaster = std::make_shared<broadcaster>(pool.get_executor(), manager);
