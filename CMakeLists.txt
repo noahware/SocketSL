@@ -92,6 +92,7 @@ set(FBS_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/message/message.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/request/request.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/shared/response/response.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/peer/src/peer.fbs"
 )
 
 set(FBS_GENERATED_HEADERS)
@@ -156,3 +157,16 @@ target_include_directories(client PRIVATE
 )
 
 target_link_libraries(client PRIVATE socketsl)
+
+# Peer executable
+add_executable(peer)
+
+target_sources(peer PRIVATE
+    peer/src/main.cpp
+)
+
+target_include_directories(peer PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/peer/src"
+)
+
+target_link_libraries(peer PRIVATE socketsl)

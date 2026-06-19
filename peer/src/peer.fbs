@@ -1,0 +1,13 @@
+namespace Peer;
+
+enum MessageId : uint8
+{
+    Random = 0
+}
+
+table RandomNumber
+{
+    value: uint64;
+}
+
+root_type RandomNumber;
