@@ -5,7 +5,7 @@
 #include <schema/peer_generated.h>
 #include <network/socket.hpp>
 
-#include <log/log.hpp>
+#include "../common/log.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -141,6 +141,10 @@ std::int32_t main(int argc, char** argv)
 		const auto manager = std::make_shared<sl::boost_session_manager<peer_session>>(pool.get_executor(), server_context, listen_port);
 
 		manager->set_timeout(std::chrono::seconds(10));
+
+		manager->on_connect([](const std::shared_ptr<sl::session>&) { LOG_INFO("peer connected"); });
+		manager->on_disconnect([](const std::shared_ptr<sl::session>&) { LOG_INFO("peer disconnected"); });
+
 		manager->async_wait_for_connection();
 
 		LOG_INFO("peer listening on port {}", listen_port);

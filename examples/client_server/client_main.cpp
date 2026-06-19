@@ -6,7 +6,7 @@
 #include <schema/request_generated.h>
 #include <schema/response_generated.h>
 
-#include <log/log.hpp>
+#include "../common/log.hpp"
 
 namespace
 {

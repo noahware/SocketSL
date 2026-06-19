@@ -7,7 +7,7 @@
 #include <schema/request_generated.h>
 #include <schema/response_generated.h>
 
-#include <log/log.hpp>
+#include "../common/log.hpp"
 
 namespace
 {
@@ -81,6 +81,10 @@ std::int32_t main()
 			pool.get_executor(), client_ssl_context, 2457);
 
 		manager->set_timeout(std::chrono::seconds(10));
+
+		manager->on_connect([](const std::shared_ptr<sl::session>&) { LOG_INFO("client connected"); });
+		manager->on_disconnect([](const std::shared_ptr<sl::session>&) { LOG_INFO("client disconnected"); });
+
 		manager->async_wait_for_connection();
 
 		boost::asio::signal_set signals(pool.get_executor(), SIGINT, SIGTERM);

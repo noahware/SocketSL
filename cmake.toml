@@ -48,7 +48,6 @@ sources = [
 include-directories = ["src"]
 compile-features = ["cxx_std_20"]
 link-libraries = [
-    "spdlog::spdlog",
     "flatbuffers",
     "Boost::system",
     "Boost::asio",
@@ -111,7 +110,7 @@ sources = [
     "examples/client_server/server_main.cpp",
 ]
 include-directories = ["examples/client_server"]
-link-libraries = ["socketsl"]
+link-libraries = ["socketsl", "spdlog::spdlog"]
 
 [target.client]
 type = "executable"
@@ -119,7 +118,7 @@ sources = [
     "examples/client_server/client_main.cpp",
 ]
 include-directories = ["examples/client_server"]
-link-libraries = ["socketsl"]
+link-libraries = ["socketsl", "spdlog::spdlog"]
 
 [target.peer]
 type = "executable"
@@ -127,4 +126,4 @@ sources = [
     "examples/peer/main.cpp",
 ]
 include-directories = ["examples/peer"]
-link-libraries = ["socketsl"]
+link-libraries = ["socketsl", "spdlog::spdlog"]

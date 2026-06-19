@@ -1,6 +1,5 @@
 #pragma once
 #include <serialisation/serialisation.hpp>
-#include <log/log.hpp>
 
 #include <cstdint>
 #include <span>
@@ -28,7 +27,6 @@ namespace sl
 
 			if (!serialisation::is_valid<BodyType>(body))
 			{
-				LOG_ERR("invalid message body for type {}", id);
 				return true;
 			}
 

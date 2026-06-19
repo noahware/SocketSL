@@ -3,7 +3,6 @@
 
 #include <serialisation/serialisation.hpp>
 #include <endian/endian.hpp>
-#include <log/log.hpp>
 
 #include <schema/message_generated.h>
 
@@ -93,8 +92,6 @@ namespace sl
 				}
 				else
 				{
-					LOG_ERR("failed to read frame size");
-
 					self->on_error();
 				}
 			}
@@ -110,8 +107,6 @@ namespace sl
 			{
 				if (!is_valid)
 				{
-					LOG_ERR("failed to read message header");
-
 					self->on_error();
 
 					return;
@@ -122,8 +117,6 @@ namespace sl
 
 				if (!parse_header(*header_buffer, type, body_size))
 				{
-					LOG_ERR("message header is invalid");
-
 					self->on_error();
 
 					return;
@@ -143,8 +136,6 @@ namespace sl
 			{
 				if (!is_valid)
 				{
-					LOG_ERR("failed to read message body");
-
 					self->on_error();
 
 					return;

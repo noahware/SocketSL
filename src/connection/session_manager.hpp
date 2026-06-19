@@ -1,8 +1,7 @@
 #pragma once
 #include "session.hpp"
 
-#include <log/log.hpp>
-
+#include <functional>
 #include <mutex>
 
 namespace sl
@@ -11,11 +10,15 @@ namespace sl
 	{
 	public:
 		using timeout_duration = socket::timeout_duration;
+		using session_callback_t = std::function<void(const std::shared_ptr<session>&)>;
 
 		session_manager() = default;
 		virtual ~session_manager() = default;
 
 		void set_timeout(timeout_duration timeout) noexcept;
+
+		void on_connect(session_callback_t callback);
+		void on_disconnect(session_callback_t callback);
 
 		virtual void async_wait_for_connection() = 0;
 		virtual void stop();
@@ -41,6 +44,8 @@ namespace sl
 		void register_and_start(std::shared_ptr<session> sess);
 
 		timeout_duration timeout_{};
+		session_callback_t on_connect_;
+		session_callback_t on_disconnect_;
 		mutable std::mutex sessions_mutex_;
 		std::vector<std::shared_ptr<session>> sessions_;
 	};
@@ -85,20 +90,8 @@ namespace sl
 			{
 				if (error_code)
 				{
-					if (error_code != boost::asio::error::operation_aborted)
-					{
-						LOG_ERR(error_code.what());
-					}
-
 					return;
 				}
-
-				const auto local_endpoint = asio_socket.local_endpoint();
-
-				const auto remote_endpoint = asio_socket.remote_endpoint();
-				const auto endpoint_address = remote_endpoint.address();
-
-				LOG_INFO("accepting connection from {} on port {}", endpoint_address.to_string(), local_endpoint.port());
 
 				auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(asio_socket), ssl_context_);
 				auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());

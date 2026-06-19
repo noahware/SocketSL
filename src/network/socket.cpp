@@ -1,7 +1,5 @@
 #include "socket.hpp"
 
-#include <log/log.hpp>
-
 namespace sl
 {
 	void socket::erase(const std::size_t size)
@@ -16,13 +14,8 @@ namespace sl
 		const auto dummy_buffer = std::make_shared<std::vector<std::uint8_t>>(size);
 
 		async_read(*dummy_buffer,
-			[handler, size, dummy_buffer](const bool is_valid)
+			[handler, dummy_buffer](const bool is_valid)
 			{
-				if (!is_valid)
-				{
-					LOG_ERR("failed to erase {} bytes from socket", size);
-				}
-
 				handler(is_valid);
 			}
 		);
@@ -51,7 +44,6 @@ namespace sl
 			{
 				if (!ec)
 				{
-					LOG_WARN("socket operation timed out");
 					stream_->lowest_layer().close();
 				}
 			}
@@ -109,8 +101,6 @@ namespace sl
 				{
 					cancel_deadline();
 
-					LOG_ERR(error_code.what());
-
 					handler(false);
 
 					return;
@@ -121,14 +111,7 @@ namespace sl
 					{
 						cancel_deadline();
 
-						const bool is_valid = !connect_error_code;
-
-						if (!is_valid)
-						{
-							LOG_ERR(connect_error_code.what());
-						}
-
-						handler(is_valid);
+						handler(!connect_error_code);
 					}
 				);
 			}
@@ -167,14 +150,7 @@ namespace sl
 			{
 				cancel_deadline();
 
-				const bool is_valid = !error_code;
-
-				if (!is_valid)
-				{
-					LOG_ERR(error_code.what());
-				}
-
-				handler(is_valid);
+				handler(!error_code);
 			}
 		);
 	}
@@ -197,14 +173,7 @@ namespace sl
 			{
 				cancel_deadline();
 
-				const bool is_valid = !error_code;
-
-				if (!is_valid)
-				{
-					LOG_ERR(error_code.what());
-				}
-
-				handler(is_valid);
+				handler(!error_code);
 			}
 		);
 	}
@@ -227,14 +196,7 @@ namespace sl
 			{
 				cancel_deadline();
 
-				const bool is_valid = !error_code;
-
-				if (!is_valid)
-				{
-					LOG_ERR(error_code.what());
-				}
-
-				handler(is_valid);
+				handler(!error_code);
 			}
 		);
 	}

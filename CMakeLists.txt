@@ -75,7 +75,6 @@ target_include_directories(socketsl PUBLIC
 target_compile_features(socketsl PUBLIC cxx_std_20)
 
 target_link_libraries(socketsl PUBLIC
-    spdlog::spdlog
     flatbuffers
     Boost::system
     Boost::asio
@@ -142,7 +141,7 @@ target_include_directories(server PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server"
 )
 
-target_link_libraries(server PRIVATE socketsl)
+target_link_libraries(server PRIVATE socketsl spdlog::spdlog)
 
 # Client executable
 add_executable(client)
@@ -155,7 +154,7 @@ target_include_directories(client PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server"
 )
 
-target_link_libraries(client PRIVATE socketsl)
+target_link_libraries(client PRIVATE socketsl spdlog::spdlog)
 
 # Peer executable
 add_executable(peer)
@@ -168,4 +167,4 @@ target_include_directories(peer PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer"
 )
 
-target_link_libraries(peer PRIVATE socketsl)
+target_link_libraries(peer PRIVATE socketsl spdlog::spdlog)

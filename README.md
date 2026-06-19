@@ -102,9 +102,7 @@ const auto manager = std::make_shared<sl::boost_session_manager<peer_session>>(e
 
 manager->async_wait_for_connection();                        // accept inbound peers
 
-auto socket = std::make_unique<sl::boost_tcp_socket>(executor, client_ctx);
-auto sess = std::make_shared<peer_session>(std::move(socket), manager);
-manager->connect(sess, "127.0.0.1", "5002");                 // dial an outbound peer
+manager->connect("127.0.0.1", "5002");                 // dial an outbound peer
 
 // broadcast to every connected peer (inbound + outbound), e.g. on a timer
 manager->for_each_session([](const std::shared_ptr<sl::session>& sess)
