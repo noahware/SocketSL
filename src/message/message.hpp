@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -28,14 +29,14 @@ namespace sl::msg
 
 	[[nodiscard]] message_t make_from_body(message_id_t id, std::span<const std::uint8_t> body);
 
-	// synchronous send: [u64 frame size][header][body]
-	void send_buffer(sl::socket& socket, std::span<const std::uint8_t> buffer, std::size_t header_size);
+	// synchronous send: [u64 frame size][header][body]; returns whether both writes succeeded
+	bool send_buffer(sl::socket& socket, std::span<const std::uint8_t> buffer, std::size_t header_size);
 
 	// asynchronous send
 	void async_send_buffer(sl::socket& socket, const std::shared_ptr<std::vector<std::uint8_t>>& buffer, std::size_t header_size, const async_callback_t& handler);
 
-	// synchronous receive of one framed message; returns the message id
-	[[nodiscard]] message_id_t recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
+	// synchronous receive of one framed message; returns the message id, or nullopt on read/parse failure
+	[[nodiscard]] std::optional<message_id_t> recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
 
 	namespace detail
 	{
@@ -67,12 +68,12 @@ namespace sl::msg
 		return make_from_body(id, body);
 	}
 
-	// synchronous send
+	// synchronous send; returns whether the message was written in full
 	template <auto CreateFn, class... Args>
-	void send(sl::socket& socket, const message_id_t id, Args&&... args)
+	bool send(sl::socket& socket, const message_id_t id, Args&&... args)
 	{
 		const auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
-		send_buffer(socket, buffer, header_size);
+		return send_buffer(socket, buffer, header_size);
 	}
 
 	// asynchronous send with a completion handler -- void() or void(bool is_valid)
@@ -94,11 +95,20 @@ namespace sl::msg
 		async_send_buffer(socket, buffer_ptr, header_size, async_callback_t{});
 	}
 
-	// synchronous receive of one framed message, then deserialise
+	// synchronous receive of one framed message, then deserialise;
+	// returns nullptr on read failure or an invalid body buffer
 	template <class T>
 	[[nodiscard]] const T* recv(sl::socket& socket, std::vector<std::uint8_t>& buffer)
 	{
-		(void)recv_buffer(socket, buffer);
+		if (!recv_buffer(socket, buffer))
+		{
+			return nullptr;
+		}
+
+		if (!serialisation::is_valid<T>(buffer))
+		{
+			return nullptr;
+		}
 
 		return serialisation::deserialise<T>(buffer);
 	}

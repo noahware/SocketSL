@@ -49,6 +49,13 @@ namespace
 		std::vector<std::uint8_t> response_buffer = {};
 		const auto* response = sl::msg::recv<Client::TestResponse>(sock, response_buffer);
 
+		if (!response)
+		{
+			LOG_ERR("failed to receive response");
+
+			return;
+		}
+
 		LOG_INFO("test response key: 0x{:X}", response->key());
 	}
 

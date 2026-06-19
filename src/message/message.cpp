@@ -4,6 +4,8 @@
 
 #include <schema/message_generated.h>
 
+#include <optional>
+
 namespace sl::msg
 {
 	namespace
@@ -34,11 +36,14 @@ namespace sl::msg
 		return message;
 	}
 
-	void send_buffer(sl::socket& socket, const std::span<const std::uint8_t> buffer, const std::size_t header_size)
+	bool send_buffer(sl::socket& socket, const std::span<const std::uint8_t> buffer, const std::size_t header_size)
 	{
-		(void)socket.write<frame_size_t>(endian::to_little(static_cast<frame_size_t>(header_size)));
+		if (!socket.write<frame_size_t>(endian::to_little(static_cast<frame_size_t>(header_size))))
+		{
+			return false;
+		}
 
-		(void)socket.write(buffer);
+		return socket.write(buffer);
 	}
 
 	void async_send_buffer(sl::socket& socket, const std::shared_ptr<std::vector<std::uint8_t>>& buffer, const std::size_t header_size, const async_callback_t& handler)
@@ -60,22 +65,36 @@ namespace sl::msg
 		);
 	}
 
-	message_id_t recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer)
+	std::optional<message_id_t> recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer)
 	{
 		frame_size_t le_header_size = 0;
-		(void)socket.read(le_header_size);
+		if (!socket.read(le_header_size))
+		{
+			return std::nullopt;
+		}
 
 		const std::size_t header_size = endian::from_little(le_header_size);
 
 		std::vector<std::uint8_t> header_buffer(header_size);
-		(void)socket.read(header_buffer);
+		if (!socket.read(header_buffer))
+		{
+			return std::nullopt;
+		}
+
+		if (!serialisation::is_valid<MessageHeader>(header_buffer))
+		{
+			return std::nullopt;
+		}
 
 		const auto* header = serialisation::deserialise<MessageHeader>(header_buffer);
 		const message_id_t id = header->type();
 		const std::size_t body_size = header->body_size();
 
 		body_buffer.resize(body_size);
-		(void)socket.read(body_buffer);
+		if (!socket.read(body_buffer))
+		{
+			return std::nullopt;
+		}
 
 		return id;
 	}

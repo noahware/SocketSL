@@ -20,7 +20,10 @@ void receive_test_response(sl::socket& socket)
 
 	const auto test_response = sl::msg::recv<Client::TestResponse>(socket, response_buffer);
 
-	LOG_INFO("test response key: 0x{:X}", test_response->key());
+	if (test_response)
+	{
+		LOG_INFO("test response key: 0x{:X}", test_response->key());
+	}
 }
 
 void connect_to_server(sl::socket& socket)
