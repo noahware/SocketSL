@@ -128,7 +128,7 @@ table TestResponse
 }
 ```
 
-The `shared/serialisation/serialisation.hpp` header contains templated routines to serialise an object into a byte buffer. Heres the forward declaration of `sl::serialisation::serialise`:
+The `src/serialisation/serialisation.hpp` header contains templated routines to serialise an object into a byte buffer. Heres the forward declaration of `sl::serialisation::serialise`:
 
 ```cpp
 template <class CreateFn, class ...Args>

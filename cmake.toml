@@ -39,13 +39,13 @@ url = "https://github.com/libressl/portable/releases/download/v4.0.0/libressl-4.
 [target.socketsl]
 type = "static"
 sources = [
-    "shared/network/socket.cpp",
-    "shared/network/ssl.cpp",
-    "shared/message/message.cpp",
-    "shared/connection/session.cpp",
-    "shared/connection/session_manager.cpp",
+    "src/network/socket.cpp",
+    "src/network/ssl.cpp",
+    "src/message/message.cpp",
+    "src/connection/session.cpp",
+    "src/connection/session_manager.cpp",
 ]
-include-directories = ["shared"]
+include-directories = ["src"]
 compile-features = ["cxx_std_20"]
 link-libraries = [
     "spdlog::spdlog",
@@ -62,10 +62,10 @@ set(FBS_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/schema")
 file(MAKE_DIRECTORY "${FBS_GENERATED_DIR}")
 
 set(FBS_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/message/message.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/request/request.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/response/response.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/peer/src/peer.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/message/message.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/request.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/response.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer/peer.fbs"
 )
 
 set(FBS_GENERATED_HEADERS)
@@ -108,24 +108,23 @@ endif()
 [target.server]
 type = "executable"
 sources = [
-    "server/src/main.cpp",
-    "server/src/connection/client_connection.cpp",
+    "examples/client_server/server_main.cpp",
 ]
-include-directories = ["server/src"]
+include-directories = ["examples/client_server"]
 link-libraries = ["socketsl"]
 
 [target.client]
 type = "executable"
 sources = [
-    "client/src/main.cpp",
+    "examples/client_server/client_main.cpp",
 ]
-include-directories = ["client/src"]
+include-directories = ["examples/client_server"]
 link-libraries = ["socketsl"]
 
 [target.peer]
 type = "executable"
 sources = [
-    "peer/src/main.cpp",
+    "examples/peer/main.cpp",
 ]
-include-directories = ["peer/src"]
+include-directories = ["examples/peer"]
 link-libraries = ["socketsl"]

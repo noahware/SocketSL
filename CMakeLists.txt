@@ -61,15 +61,15 @@ FetchContent_MakeAvailable(spdlog flatbuffers Boost libressl)
 add_library(socketsl STATIC)
 
 target_sources(socketsl PRIVATE
-    shared/network/socket.cpp
-    shared/network/ssl.cpp
-    shared/message/message.cpp
-    shared/connection/session.cpp
-    shared/connection/session_manager.cpp
+    src/network/socket.cpp
+    src/network/ssl.cpp
+    src/message/message.cpp
+    src/connection/session.cpp
+    src/connection/session_manager.cpp
 )
 
 target_include_directories(socketsl PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 target_compile_features(socketsl PUBLIC cxx_std_20)
@@ -89,10 +89,10 @@ set(FBS_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/schema")
 file(MAKE_DIRECTORY "${FBS_GENERATED_DIR}")
 
 set(FBS_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/message/message.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/request/request.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/shared/response/response.fbs"
-    "${CMAKE_CURRENT_SOURCE_DIR}/peer/src/peer.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/message/message.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/request.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/response.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer/peer.fbs"
 )
 
 set(FBS_GENERATED_HEADERS)
@@ -135,12 +135,11 @@ endif()
 add_executable(server)
 
 target_sources(server PRIVATE
-    server/src/main.cpp
-    server/src/connection/client_connection.cpp
+    examples/client_server/server_main.cpp
 )
 
 target_include_directories(server PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/server/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server"
 )
 
 target_link_libraries(server PRIVATE socketsl)
@@ -149,11 +148,11 @@ target_link_libraries(server PRIVATE socketsl)
 add_executable(client)
 
 target_sources(client PRIVATE
-    client/src/main.cpp
+    examples/client_server/client_main.cpp
 )
 
 target_include_directories(client PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/client/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server"
 )
 
 target_link_libraries(client PRIVATE socketsl)
@@ -162,11 +161,11 @@ target_link_libraries(client PRIVATE socketsl)
 add_executable(peer)
 
 target_sources(peer PRIVATE
-    peer/src/main.cpp
+    examples/peer/main.cpp
 )
 
 target_include_directories(peer PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/peer/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer"
 )
 
 target_link_libraries(peer PRIVATE socketsl)
