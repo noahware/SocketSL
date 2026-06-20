@@ -36,6 +36,16 @@ namespace sl
 		return max_message_size_;
 	}
 
+	void boost_tcp_socket::set_max_pending_writes(const std::size_t max_pending)
+	{
+		max_pending_writes_ = max_pending;
+	}
+
+	std::size_t boost_tcp_socket::max_pending_writes() const
+	{
+		return max_pending_writes_;
+	}
+
 	void boost_tcp_socket::reset_idle_timer()
 	{
 		if (timeout_ == timeout_duration::zero())
@@ -200,12 +210,31 @@ namespace sl
 	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> buffer, const async_callback_t& handler)
 	{
 		bool idle = false;
+		bool rejected = false;
 
 		{
 			const std::lock_guard lock(write_mutex_);
 
-			idle = write_queue_.empty();
-			write_queue_.push_back({buffer, handler});
+			if (max_pending_writes_ != 0 && write_queue_.size() >= max_pending_writes_)
+			{
+				rejected = true;
+			}
+			else
+			{
+				idle = write_queue_.empty();
+				write_queue_.push_back({buffer, handler});
+			}
+		}
+
+		// queue full: the peer isn't draining -- fail this send rather than growing memory unbounded
+		if (rejected)
+		{
+			if (handler)
+			{
+				handler(false);
+			}
+
+			return;
 		}
 
 		// only the writer that found the queue idle starts the chain; the rest just queued

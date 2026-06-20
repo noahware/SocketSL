@@ -14,6 +14,8 @@ project(SocketSL
     LANGUAGES CXX
 )
 
+option(SOCKETSL_BUILD_TESTS "Build the SocketSL test suite" ON)
+
 # Sub-project options
 set(FLATBUFFERS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(FLATBUFFERS_INSTALL OFF CACHE BOOL "" FORCE)
@@ -94,6 +96,10 @@ set(FBS_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer/peer.fbs"
 )
 
+if(SOCKETSL_BUILD_TESTS)
+    list(APPEND FBS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message.fbs")
+endif()
+
 set(FBS_GENERATED_HEADERS)
 foreach(FBS_FILE ${FBS_FILES})
     get_filename_component(FBS_NAME "${FBS_FILE}" NAME_WE)
@@ -168,3 +174,34 @@ target_include_directories(peer PRIVATE
 )
 
 target_link_libraries(peer PRIVATE socketsl spdlog::spdlog)
+
+# Tests
+if(SOCKETSL_BUILD_TESTS)
+    enable_testing()
+
+    # honour CMAKE_MSVC_RUNTIME_LIBRARY in googletest so its CRT matches the rest of the build
+    set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.15.2
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(googletest)
+
+    add_executable(tests
+        tests/test_endian.cpp
+        tests/test_serialisation.cpp
+        tests/test_message.cpp
+        tests/test_router.cpp
+    )
+
+    target_include_directories(tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+    target_link_libraries(tests PRIVATE socketsl GTest::gtest GTest::gtest_main)
+    add_dependencies(tests generate_flatbuffers)
+
+    include(GoogleTest)
+    gtest_discover_tests(tests)
+endif()

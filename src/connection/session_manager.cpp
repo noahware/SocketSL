@@ -14,6 +14,11 @@ namespace sl
 		max_message_size_ = max_size;
 	}
 
+	void session_manager::set_max_pending_writes(const std::size_t max_pending) noexcept
+	{
+		max_pending_writes_ = max_pending;
+	}
+
 	void session_manager::on_connect(session_callback_t callback)
 	{
 		on_connect_ = std::move(callback);
@@ -51,6 +56,11 @@ namespace sl
 			sess->socket().set_max_message_size(max_message_size_);
 		}
 
+		if (max_pending_writes_ != 0)
+		{
+			sess->socket().set_max_pending_writes(max_pending_writes_);
+		}
+
 		sess->async_handshake(sl::socket::handshake_type::server,
 			[this, sess](const bool is_valid)
 			{
@@ -72,6 +82,11 @@ namespace sl
 		if (max_message_size_ != 0)
 		{
 			sess->socket().set_max_message_size(max_message_size_);
+		}
+
+		if (max_pending_writes_ != 0)
+		{
+			sess->socket().set_max_pending_writes(max_pending_writes_);
 		}
 
 		sess->async_connect(host, service,

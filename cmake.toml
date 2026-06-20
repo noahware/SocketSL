@@ -19,6 +19,11 @@ set(BOOST_INCLUDE_LIBRARIES system asio endian CACHE STRING "" FORCE)
 set(LIBRESSL_APPS OFF CACHE BOOL "" FORCE)
 set(LIBRESSL_TESTS OFF CACHE BOOL "" FORCE)
 set(LIBRESSL_INSTALL OFF CACHE BOOL "" FORCE)
+
+# Tests (googletest): match the rest of the build's MSVC runtime, skip install
+option(SOCKETSL_BUILD_TESTS "Build the SocketSL test suite" ON)
+set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 """
 
 [fetch-content.spdlog]
@@ -35,6 +40,11 @@ tag = "boost-1.88.0"
 
 [fetch-content.libressl]
 url = "https://github.com/libressl/portable/releases/download/v4.0.0/libressl-4.0.0.tar.gz"
+
+[fetch-content.googletest]
+git = "https://github.com/google/googletest.git"
+tag = "v1.15.2"
+shallow = true
 
 [target.socketsl]
 type = "static"
@@ -66,6 +76,10 @@ set(FBS_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/response.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer/peer.fbs"
 )
+
+if(SOCKETSL_BUILD_TESTS)
+    list(APPEND FBS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_message.fbs")
+endif()
 
 set(FBS_GENERATED_HEADERS)
 foreach(FBS_FILE ${FBS_FILES})
@@ -127,3 +141,21 @@ sources = [
 ]
 include-directories = ["examples/peer"]
 link-libraries = ["socketsl", "spdlog::spdlog"]
+
+[target.tests]
+type = "executable"
+condition = "SOCKETSL_BUILD_TESTS"
+sources = [
+    "tests/test_endian.cpp",
+    "tests/test_serialisation.cpp",
+    "tests/test_message.cpp",
+    "tests/test_router.cpp",
+]
+include-directories = ["tests"]
+link-libraries = ["socketsl", "GTest::gtest", "GTest::gtest_main"]
+cmake-after = """
+enable_testing()
+add_dependencies(tests generate_flatbuffers)
+include(GoogleTest)
+gtest_discover_tests(tests)
+"""

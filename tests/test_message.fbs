@@ -1,0 +1,9 @@
+namespace TestMsg;
+
+table Ping
+{
+    seq: uint32;
+    value: uint64;
+}
+
+root_type Ping;
