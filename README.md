@@ -225,6 +225,15 @@ const auto manager = std::make_shared<sl::boost_session_manager<sl::client_conne
 manager->async_wait_for_connection();
 ```
 
+## Security
+
+You may limit the maximum message size (to avoid attacks that try to exhaust the server of memory) and maximum async write queue size.
+
+```cpp
+manager->set_max_message_size(1024 * 1024);
+manager->set_max_pending_writes(32);
+```
+
 # Usage
 
 The project at the moment uses `mutual TLS with temporary dhparams` as an example, this is configured in the `set_up_ssl_context` functions in the client and server. This is purely an example of an SSL setup and the project supports many more SSL configurations.
