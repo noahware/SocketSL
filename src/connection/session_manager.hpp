@@ -1,8 +1,10 @@
 #pragma once
 #include "session.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <mutex>
+#include <unordered_map>
 
 namespace sl
 {
@@ -17,8 +19,13 @@ namespace sl
 
 		void set_idle_timeout(timeout_duration timeout) noexcept;
 		void set_heartbeat_timeout(timeout_duration timeout) noexcept;
+		void set_handshake_timeout(timeout_duration timeout) noexcept;
 		void set_max_message_size(std::size_t max_size) noexcept;
 		void set_max_pending_writes(std::size_t max_pending) noexcept;
+
+		// 0 = unlimited. inbound connections past either limit are rejected before the handshake
+		void set_max_sessions(std::size_t max) noexcept;
+		void set_max_connections_per_ip(std::size_t max) noexcept;
 
 		void on_connect(session_callback_t callback);
 		void on_disconnect(session_callback_t callback);
@@ -46,14 +53,21 @@ namespace sl
 	protected:
 		void register_and_start(std::shared_ptr<session> sess);
 
+		// admission control for an inbound connection from ip: false if a cap would be exceeded
+		[[nodiscard]] bool can_ip_connect(std::uint32_t ip) const;
+
 		timeout_duration idle_timeout_{};
 		timeout_duration heartbeat_timeout_{};
+		timeout_duration handshake_timeout_{};
 		std::size_t max_message_size_{};
 		std::size_t max_pending_writes_{};
+		std::size_t max_sessions_{};
+		std::size_t max_connections_per_ip_{};
 		session_callback_t on_connect_;
 		session_callback_t on_disconnect_;
 		mutable std::mutex sessions_mutex_;
 		std::vector<std::shared_ptr<session>> sessions_;
+		std::unordered_map<std::uint32_t, std::size_t> connections_per_ip_;
 	};
 
 	// must be created as a shared ptr

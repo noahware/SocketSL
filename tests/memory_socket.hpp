@@ -22,6 +22,8 @@ namespace test
 
 		void set_heartbeat_timeout(timeout_duration) override {}
 
+		void set_handshake_timeout(timeout_duration) override {}
+
 		void set_max_message_size(const std::size_t max_size) override
 		{
 			max_message_size_ = max_size;
@@ -115,9 +117,14 @@ namespace test
 			}
 		}
 
+		void set_ipv4_address(const std::uint32_t ip)
+		{
+			ipv4_address_ = ip;
+		}
+
 		[[nodiscard]] std::uint32_t ipv4_address() const override
 		{
-			return 0;
+			return ipv4_address_;
 		}
 
 		[[nodiscard]] std::uint16_t port() const override
@@ -142,5 +149,6 @@ namespace test
 		std::size_t read_pos_ = 0;
 		std::size_t max_message_size_ = sl::socket::default_max_message_size;
 		std::size_t max_pending_writes_ = sl::socket::default_max_pending_writes;
+		std::uint32_t ipv4_address_ = 0;
 	};
 }

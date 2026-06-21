@@ -68,6 +68,7 @@ std::int32_t main()
 
 		manager->set_idle_timeout(std::chrono::seconds(10));
 		manager->set_heartbeat_timeout(std::chrono::seconds(2));
+		manager->set_handshake_timeout(std::chrono::seconds(3));
 		manager->set_max_message_size(1024 * 1024);
 
 		manager->on_connect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("client connected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });

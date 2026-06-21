@@ -197,6 +197,7 @@ if(SOCKETSL_BUILD_TESTS)
         tests/test_serialisation.cpp
         tests/test_message.cpp
         tests/test_router.cpp
+        tests/test_session_caps.cpp
     )
 
     target_include_directories(tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")

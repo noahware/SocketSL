@@ -34,6 +34,11 @@ namespace sl
 		heartbeat_timeout_ = timeout;
 	}
 
+	void boost_tcp_socket::set_handshake_timeout(const timeout_duration timeout)
+	{
+		handshake_timeout_ = timeout;
+	}
+
 	void boost_tcp_socket::set_max_message_size(const std::size_t max_size)
 	{
 		max_message_size_ = max_size;
@@ -128,6 +133,39 @@ namespace sl
 		);
 	}
 
+	void boost_tcp_socket::reset_handshake_timer()
+	{
+		if (handshake_timeout_ == timeout_duration::zero())
+		{
+			return;
+		}
+
+		if (!handshake_timer_)
+		{
+			handshake_timer_ = std::make_unique<boost::asio::steady_timer>(executor_);
+		}
+
+		// armed for the whole handshake; if it fires the peer never finished, so drop the connection
+		handshake_timer_->expires_after(handshake_timeout_);
+		handshake_timer_->async_wait(
+			[this](const boost::system::error_code& ec)
+			{
+				if (!ec)
+				{
+					stream_->lowest_layer().close();
+				}
+			}
+		);
+	}
+
+	void boost_tcp_socket::cancel_handshake_timer()
+	{
+		if (handshake_timer_)
+		{
+			handshake_timer_->cancel();
+		}
+	}
+
 	bool boost_tcp_socket::connect(const std::string_view host, const std::string_view service)
 	{
 		const std::optional<resolver_type::results_type> endpoints = resolve_host(host, service);
@@ -213,14 +251,17 @@ namespace sl
 
 	void boost_tcp_socket::async_handshake(const handshake_type type, const async_callback_t& handler)
 	{
-		reset_idle_timer();
-		reset_heartbeat_timer();
+		// the handshake phase is bounded by its own deadline; the idle and heartbeat timers belong
+		// to the established connection and are armed only once the handshake succeeds
+		reset_handshake_timer();
 
 		const asio_handshake_type asio_type = to_asio_handshake_type(type);
 
 		stream_->async_handshake(asio_type,
 			[this, handler](const boost::system::error_code& error_code)
 			{
+				cancel_handshake_timer();
+
 				if (!error_code)
 				{
 					reset_idle_timer();

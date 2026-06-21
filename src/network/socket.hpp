@@ -34,6 +34,7 @@ namespace sl
 
 		virtual void set_idle_timeout(timeout_duration timeout) = 0;
 		virtual void set_heartbeat_timeout(timeout_duration timeout) = 0;
+		virtual void set_handshake_timeout(timeout_duration timeout) = 0;
 
 		// receive-side cap on a single message's header and body; 0 = unlimited
 		virtual void set_max_message_size(std::size_t max_size) = 0;
@@ -105,6 +106,7 @@ namespace sl
 
 		void set_idle_timeout(timeout_duration timeout) override;
 		void set_heartbeat_timeout(timeout_duration timeout) override;
+		void set_handshake_timeout(timeout_duration timeout) override;
 		void set_max_message_size(std::size_t max_size) override;
 		[[nodiscard]] std::size_t max_message_size() const override;
 		void set_max_pending_writes(std::size_t max_pending) override;
@@ -145,6 +147,11 @@ namespace sl
 		void reset_heartbeat_timer();
 		void arm_heartbeat();
 
+		// handshake deadline: armed for the duration of an async handshake, cancelled on completion;
+		// if it fires, the peer stalled the handshake and we close
+		void reset_handshake_timer();
+		void cancel_handshake_timer();
+
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
 		void capture_remote_endpoint();
 
@@ -158,11 +165,13 @@ namespace sl
 		std::unique_ptr<asio_stream_type> stream_;
 		timeout_duration idle_timeout_{};
 		timeout_duration heartbeat_timeout_{};
+		timeout_duration handshake_timeout_{};
 		bool heartbeat_sent_ = false;
 		std::size_t max_message_size_ = default_max_message_size;
 		std::size_t max_pending_writes_ = default_max_pending_writes;
 		std::unique_ptr<boost::asio::steady_timer> idle_timer_;
 		std::unique_ptr<boost::asio::steady_timer> heartbeat_timer_;
+		std::unique_ptr<boost::asio::steady_timer> handshake_timer_;
 		asio_endpoint_type remote_endpoint_{};
 		std::mutex write_mutex_;
 		std::deque<pending_write> write_queue_;

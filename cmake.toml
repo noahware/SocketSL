@@ -151,6 +151,7 @@ sources = [
     "tests/test_serialisation.cpp",
     "tests/test_message.cpp",
     "tests/test_router.cpp",
+    "tests/test_session_caps.cpp",
 ]
 include-directories = ["tests"]
 link-libraries = ["socketsl", "GTest::gtest", "GTest::gtest_main"]

@@ -14,6 +14,21 @@ namespace sl
 		heartbeat_timeout_ = timeout;
 	}
 
+	void session_manager::set_handshake_timeout(const timeout_duration timeout) noexcept
+	{
+		handshake_timeout_ = timeout;
+	}
+
+	void session_manager::set_max_sessions(const std::size_t max) noexcept
+	{
+		max_sessions_ = max;
+	}
+
+	void session_manager::set_max_connections_per_ip(const std::size_t max) noexcept
+	{
+		max_connections_per_ip_ = max;
+	}
+
 	void session_manager::set_max_message_size(const std::size_t max_size) noexcept
 	{
 		max_message_size_ = max_size;
@@ -39,6 +54,7 @@ namespace sl
 		{
 			const std::lock_guard lock(sessions_mutex_);
 			sessions_.push_back(sess);
+			++connections_per_ip_[sess->socket().ipv4_address()];
 		}
 
 		if (on_connect_)
@@ -49,8 +65,37 @@ namespace sl
 		sess->start();
 	}
 
+	bool session_manager::can_ip_connect(const std::uint32_t ip) const
+	{
+		const std::lock_guard lock(sessions_mutex_);
+
+		if (max_sessions_ != 0 && sessions_.size() >= max_sessions_)
+		{
+			return false;
+		}
+
+		if (max_connections_per_ip_ != 0)
+		{
+			const auto entry = connections_per_ip_.find(ip);
+
+			if (entry != connections_per_ip_.end() && entry->second >= max_connections_per_ip_)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	void session_manager::add_session(std::shared_ptr<session> sess)
 	{
+		if (!can_ip_connect(sess->socket().ipv4_address()))
+		{
+			sess->socket().close();
+
+			return;
+		}
+
 		if (idle_timeout_ != timeout_duration::zero())
 		{
 			sess->socket().set_idle_timeout(idle_timeout_);
@@ -59,6 +104,11 @@ namespace sl
 		if (heartbeat_timeout_ != timeout_duration::zero())
 		{
 			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
+		}
+
+		if (handshake_timeout_ != timeout_duration::zero())
+		{
+			sess->socket().set_handshake_timeout(handshake_timeout_);
 		}
 
 		if (max_message_size_ != 0)
@@ -92,6 +142,11 @@ namespace sl
 		if (heartbeat_timeout_ != timeout_duration::zero())
 		{
 			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
+		}
+
+		if (handshake_timeout_ != timeout_duration::zero())
+		{
+			sess->socket().set_handshake_timeout(handshake_timeout_);
 		}
 
 		if (max_message_size_ != 0)
@@ -146,6 +201,13 @@ namespace sl
 
 			removed = std::move(*entry);
 			sessions_.erase(entry);
+
+			const auto ip_entry = connections_per_ip_.find(removed->socket().ipv4_address());
+
+			if (ip_entry != connections_per_ip_.end() && --ip_entry->second == 0)
+			{
+				connections_per_ip_.erase(ip_entry);
+			}
 		}
 
 		if (on_disconnect_)
@@ -171,5 +233,6 @@ namespace sl
 		}
 
 		sessions_.clear();
+		connections_per_ip_.clear();
 	}
 }
