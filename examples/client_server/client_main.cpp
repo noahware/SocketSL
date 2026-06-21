@@ -177,6 +177,7 @@ namespace
 		sl::reconnect_policy policy;
 		policy.initial_delay = std::chrono::seconds(1);
 		policy.max_delay = std::chrono::seconds(5);
+		policy.idle_timeout = std::chrono::seconds(5);
 
 		manager->connect("127.0.0.1", "2457", ssl_ctx, policy);
 

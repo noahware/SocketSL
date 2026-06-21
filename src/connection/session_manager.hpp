@@ -14,6 +14,7 @@ namespace sl
 	{
 		std::chrono::steady_clock::duration initial_delay{std::chrono::seconds(1)};
 		std::chrono::steady_clock::duration max_delay{std::chrono::seconds(30)};
+		std::chrono::steady_clock::duration idle_timeout{std::chrono::seconds(30)};
 		double multiplier = 2.0;
 		std::size_t max_attempts = 0;
 	};
@@ -238,6 +239,11 @@ namespace sl
 		std::string host, std::string service, std::optional<reconnect_state> state)
 	{
 		apply_caps(*sess);
+
+		if (state && state->policy.idle_timeout > timeout_duration::zero())
+		{
+			sess->socket().set_idle_timeout(state->policy.idle_timeout);
+		}
 
 		sess->async_connect(host, service,
 			[this, sess, state = std::move(state)](const bool connected) mutable
