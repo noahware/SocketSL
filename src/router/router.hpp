@@ -1,5 +1,5 @@
 #pragma once
-#include <serialisation/serialisation.hpp>
+#include "../serialisation/serialisation.hpp"
 
 #include <cstdint>
 #include <span>

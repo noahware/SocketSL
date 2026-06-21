@@ -138,6 +138,7 @@ std::int32_t main(int argc, char** argv)
 		const auto manager = std::make_shared<sl::boost_session_manager<peer_session>>(pool.get_executor(), server_context, listen_port);
 
 		manager->set_idle_timeout(std::chrono::seconds(10));
+		manager->set_heartbeat_timeout(std::chrono::seconds(3));
 		manager->set_max_message_size(1024 * 1024);
 
 		manager->on_connect([](const std::shared_ptr<sl::session>& sess) { LOG_INFO("peer connected: {}:{}", sess->socket().remote_address(), sess->socket().port()); });

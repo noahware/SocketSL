@@ -1,5 +1,5 @@
 #include "socket.hpp"
-#include <message/message.hpp>
+#include "../message/message.hpp"
 
 #include <schema/system_generated.h>
 

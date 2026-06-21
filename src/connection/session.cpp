@@ -1,9 +1,9 @@
 #include "session.hpp"
 #include "session_manager.hpp"
 
-#include <serialisation/serialisation.hpp>
-#include <message/message.hpp>
-#include <endian/endian.hpp>
+#include "../serialisation/serialisation.hpp"
+#include "../message/message.hpp"
+#include "../endian/endian.hpp"
 
 #include <schema/message_generated.h>
 #include <schema/system_generated.h>

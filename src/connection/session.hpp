@@ -1,5 +1,5 @@
 #pragma once
-#include <network/socket.hpp>
+#include "../network/socket.hpp"
 
 #include <cstdint>
 #include <memory>
