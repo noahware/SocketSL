@@ -130,6 +130,13 @@ namespace test
 			return "0.0.0.0";
 		}
 
+		// test-only: the full loopback buffer (everything written so far), for inspecting
+		// frames the code under test wrote back -- e.g. an auto-pong reply to a ping
+		[[nodiscard]] std::span<const std::uint8_t> bytes() const
+		{
+			return buffer_;
+		}
+
 	private:
 		std::vector<std::uint8_t> buffer_;
 		std::size_t read_pos_ = 0;

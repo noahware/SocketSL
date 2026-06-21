@@ -1,13 +1,17 @@
 #include <message/message.hpp>
 #include <endian/endian.hpp>
+#include <serialisation/serialisation.hpp>
 
 #include <gtest/gtest.h>
 #include <schema/test_message_generated.h>
+#include <schema/message_generated.h>
+#include <schema/system_generated.h>
 
 #include "memory_socket.hpp"
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <span>
 #include <vector>
@@ -103,4 +107,52 @@ TEST(MaxMessageSize, RejectsOversizedBodyBeforeAllocating)
 	std::vector<std::uint8_t> body;
 	EXPECT_FALSE(sl::msg::recv_buffer(socket, body).has_value());
 	EXPECT_TRUE(body.empty());
+}
+
+TEST(SystemFrame, RecvSwallowsSystemFrameAndReturnsAppMessage)
+{
+	test::memory_socket socket;
+
+	// a system frame (a pong) precedes a real application message
+	(void)sl::msg::send<System::CreateHbPongRequest, true>(socket, System::MessageId_HbPong);
+	(void)sl::msg::send<TestMsg::CreatePing>(socket, ping_id, 7u, 0xABCDull);
+
+	std::vector<std::uint8_t> body;
+	const std::optional<sl::msg::message_id_t> id = sl::msg::recv_buffer(socket, body);
+
+	// the system frame is intercepted (never surfaced); the app message comes through
+	ASSERT_TRUE(id.has_value());
+	EXPECT_EQ(*id, ping_id);
+}
+
+TEST(SystemFrame, RecvAnswersPingWithPong)
+{
+	test::memory_socket socket;
+
+	// an inbound heartbeat ping, then a real application message
+	(void)sl::msg::send<System::CreateHbPingRequest, true>(socket, System::MessageId_HbPing);
+	(void)sl::msg::send<TestMsg::CreatePing>(socket, ping_id, 1u, 2ull);
+	const std::size_t before_recv = socket.bytes().size();
+
+	std::vector<std::uint8_t> body;
+	const std::optional<sl::msg::message_id_t> id = sl::msg::recv_buffer(socket, body);
+
+	// the ping is intercepted (not surfaced); the app message comes through
+	ASSERT_TRUE(id.has_value());
+	EXPECT_EQ(*id, ping_id);
+
+	// and recv answered the ping by writing a pong control frame back
+	const std::span<const std::uint8_t> all = socket.bytes();
+	ASSERT_GT(all.size(), before_recv);
+
+	const std::span<const std::uint8_t> reply = all.subspan(before_recv);
+	sl::msg::frame_size_t le_header_size = 0;
+	std::memcpy(&le_header_size, reply.data(), sizeof(le_header_size));
+	const std::size_t header_size = sl::endian::from_little(le_header_size);
+	const std::span<const std::uint8_t> reply_header = reply.subspan(sizeof(le_header_size), header_size);
+
+	ASSERT_TRUE(sl::serialisation::is_valid<MessageHeader>(reply_header));
+	const auto* reply_msg_header = sl::serialisation::deserialise<MessageHeader>(reply_header);
+	EXPECT_TRUE(reply_msg_header->is_system());
+	EXPECT_EQ(reply_msg_header->type(), System::MessageId_HbPong);
 }

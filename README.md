@@ -234,6 +234,26 @@ manager->set_max_message_size(1024 * 1024);
 manager->set_max_pending_writes(32);
 ```
 
+## Timeouts
+
+Only async sessions can be configured with timeouts, although they still work with sync peers.
+
+### Idle
+
+Waits X amount of time without any activity from the peer and disconnects the socket if the time expires. This requires no added code on the peers.
+
+```cpp
+manager->set_idle_timeout(std::chrono::seconds(30)); 
+```
+
+### Heartbeat
+
+Once X amount of inactivity from the peer passes, sends over a 'ping' request so that the peer can respond. Async peers will automatically respond with a pong request, thus proving the peer is still alive. Sync peers will drain ping requests in the read handler, and respond with a 'pong'. To manually 'ping' a peer from a sync client, call `sl::message::send_ping(socket)`.
+
+```cpp
+manager->set_heartbeat_timeout(std::chrono::seconds(10)); 
+```
+
 # Usage
 
 The project at the moment uses `mutual TLS with temporary dhparams` as an example, this is configured in the `set_up_ssl_context` functions in the client and server. This is purely an example of an SSL setup and the project supports many more SSL configurations.

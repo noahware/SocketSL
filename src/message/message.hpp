@@ -38,6 +38,10 @@ namespace sl::msg
 	// synchronous receive of one framed message; returns the message id, or nullopt on read/parse failure
 	[[nodiscard]] std::optional<message_id_t> recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer);
 
+	// send a heartbeat ping (a system control frame); synchronous, returns whether it was written in full.
+	// the matching pong is sent automatically by recv / the async session when a ping is received.
+	bool send_ping(sl::socket& socket);
+
 	namespace detail
 	{
 		template <class... Args>

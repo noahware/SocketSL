@@ -3,6 +3,7 @@
 #include "../endian/endian.hpp"
 
 #include <schema/message_generated.h>
+#include <schema/system_generated.h>
 
 #include <optional>
 
@@ -69,45 +70,64 @@ namespace sl::msg
 	{
 		const std::size_t max_message_size = socket.max_message_size();
 
-		frame_size_t le_header_size = 0;
-		if (!socket.read(le_header_size))
+		for (;;)
 		{
-			return std::nullopt;
+			frame_size_t le_header_size = 0;
+			if (!socket.read(le_header_size))
+			{
+				return std::nullopt;
+			}
+
+			const std::size_t header_size = endian::from_little(le_header_size);
+
+			if (max_message_size != 0 && header_size > max_message_size)
+			{
+				return std::nullopt;
+			}
+
+			std::vector<std::uint8_t> header_buffer(header_size);
+			if (!socket.read(header_buffer))
+			{
+				return std::nullopt;
+			}
+
+			if (!serialisation::is_valid<MessageHeader>(header_buffer))
+			{
+				return std::nullopt;
+			}
+
+			const auto* header = serialisation::deserialise<MessageHeader>(header_buffer);
+			const message_id_t id = header->type();
+			const std::size_t body_size = header->body_size();
+			const bool is_system = header->is_system();
+
+			if (max_message_size != 0 && body_size > max_message_size)
+			{
+				return std::nullopt;
+			}
+
+			body_buffer.resize(body_size);
+			if (!socket.read(body_buffer))
+			{
+				return std::nullopt;
+			}
+
+			if (!is_system)
+			{
+				return id;
+			}
+
+			// system frame: never surfaced to the caller. answer a ping inline, swallow the rest,
+			// then keep reading until an application message arrives (sync mirror of handle_sys_message)
+			if (id == System::MessageId_HbPing)
+			{
+				(void)send<System::CreateHbPongRequest, true>(socket, System::MessageId_HbPong);
+			}
 		}
+	}
 
-		const std::size_t header_size = endian::from_little(le_header_size);
-
-		if (max_message_size != 0 && header_size > max_message_size)
-		{
-			return std::nullopt;
-		}
-
-		std::vector<std::uint8_t> header_buffer(header_size);
-		if (!socket.read(header_buffer))
-		{
-			return std::nullopt;
-		}
-
-		if (!serialisation::is_valid<MessageHeader>(header_buffer))
-		{
-			return std::nullopt;
-		}
-
-		const auto* header = serialisation::deserialise<MessageHeader>(header_buffer);
-		const message_id_t id = header->type();
-		const std::size_t body_size = header->body_size();
-
-		if (max_message_size != 0 && body_size > max_message_size)
-		{
-			return std::nullopt;
-		}
-
-		body_buffer.resize(body_size);
-		if (!socket.read(body_buffer))
-		{
-			return std::nullopt;
-		}
-
-		return id;
+	bool send_ping(sl::socket& socket)
+	{
+		return send<System::CreateHbPingRequest, true>(socket, System::MessageId_HbPing);
 	}
 }
