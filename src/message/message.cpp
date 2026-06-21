@@ -5,65 +5,53 @@
 #include <schema/message_generated.h>
 #include <schema/system_generated.h>
 
+#include <cstring>
 #include <optional>
 
 namespace sl::msg
 {
-	namespace
-	{
-		void add_header(const message_id_t id, message_t& message, const bool is_system)
-		{
-			std::vector<std::uint8_t>& buffer = message.buffer;
-
-			const std::vector<std::uint8_t> header = make_header(id, buffer.size(), is_system);
-
-			buffer.insert(buffer.begin(), header.begin(), header.end());
-
-			message.header_size = header.size();
-		}
-	}
-
 	std::vector<std::uint8_t> make_header(const message_id_t id, const std::size_t body_size, const bool is_system)
 	{
 		return serialisation::serialise(serialisation::lift<CreateMessageHeader>(), id, body_size, is_system);
 	}
 
-	message_t make_from_body(const message_id_t id, const std::span<const std::uint8_t> body, const bool is_system)
+	std::vector<std::uint8_t> make_frame_header(const message_id_t id, const std::size_t body_size, const bool is_system)
 	{
-		message_t message = { .header_size = 0, .buffer = {body.begin(), body.end()} };
+		const std::vector<std::uint8_t> header_fb = make_header(id, body_size, is_system);
+		const frame_size_t wire_size = endian::to_little(static_cast<frame_size_t>(header_fb.size()));
 
-		add_header(id, message, is_system);
-
-		return message;
+		std::vector<std::uint8_t> result(sizeof(wire_size) + header_fb.size());
+		std::memcpy(result.data(), &wire_size, sizeof(wire_size));
+		std::copy(header_fb.begin(), header_fb.end(), result.data() + sizeof(wire_size));
+		return result;
 	}
 
-	bool send_buffer(sl::socket& socket, const std::span<const std::uint8_t> buffer, const std::size_t header_size)
+	message_t make_from_body(const message_id_t id, const std::span<const std::uint8_t> body, const bool is_system)
 	{
-		if (!socket.write<frame_size_t>(endian::to_little(static_cast<frame_size_t>(header_size))))
+		message_t msg;
+		msg.header = make_frame_header(id, body.size(), is_system);
+		msg.body.assign(body.begin(), body.end());
+		return msg;
+	}
+
+	bool send_buffer(sl::socket& socket, const std::span<const std::uint8_t> header, const std::span<const std::uint8_t> body)
+	{
+		if (!socket.write(header))
 		{
 			return false;
 		}
 
-		return socket.write(buffer);
+		if (body.empty())
+		{
+			return true;
+		}
+
+		return socket.write(body);
 	}
 
-	void async_send_buffer(sl::socket& socket, const std::shared_ptr<std::vector<std::uint8_t>>& buffer, const std::size_t header_size, const async_callback_t& handler)
+	void async_send_buffer(sl::socket& socket, const std::span<const std::uint8_t> header, const std::span<const std::uint8_t> body, const async_callback_t& handler)
 	{
-		const frame_size_t wire_header_size = endian::to_little(static_cast<frame_size_t>(header_size));
-
-		const auto wire_header_size_bytes = reinterpret_cast<const std::uint8_t*>(&wire_header_size);
-
-		buffer->insert(buffer->begin(), wire_header_size_bytes, wire_header_size_bytes + sizeof(wire_header_size));
-
-		socket.async_write(*buffer,
-			[handler, buffer](const bool is_valid)
-			{
-				if (handler)
-				{
-					handler(is_valid);
-				}
-			}
-		);
+		socket.async_write(header, body, handler);
 	}
 
 	std::optional<message_id_t> recv_buffer(sl::socket& socket, std::vector<std::uint8_t>& body_buffer)
@@ -117,8 +105,6 @@ namespace sl::msg
 				return id;
 			}
 
-			// system frame: never surfaced to the caller. answer a ping inline, swallow the rest,
-			// then keep reading until an application message arrives (sync mirror of handle_sys_message)
 			if (id == System::MessageId_HbPing)
 			{
 				(void)send<System::CreateHbPongRequest, true>(socket, System::MessageId_HbPong);

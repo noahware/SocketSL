@@ -117,6 +117,17 @@ namespace test
 			}
 		}
 
+		void async_write(const std::span<const std::uint8_t> head, const std::span<const std::uint8_t> body, const sl::async_callback_t& handler) override
+		{
+			const bool head_ok = head.empty() || write(head);
+			const bool body_ok = !head_ok || body.empty() || write(body);
+
+			if (handler)
+			{
+				handler(head_ok && body_ok);
+			}
+		}
+
 		void set_ipv4_address(const std::uint32_t ip)
 		{
 			ipv4_address_ = ip;

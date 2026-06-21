@@ -62,6 +62,9 @@ namespace sl
 		[[nodiscard]] virtual bool write(std::span<const std::uint8_t> buffer) = 0;
 		virtual void async_write(std::span<const std::uint8_t> buffer, const async_callback_t& handler) = 0;
 
+		// scatter-gather: write head + body as one atomic operation (no interleaving with other writes)
+		virtual void async_write(std::span<const std::uint8_t> head, std::span<const std::uint8_t> body, const async_callback_t& handler) = 0;
+
 		[[nodiscard]] virtual std::uint32_t ipv4_address() const = 0;
 		[[nodiscard]] virtual std::uint16_t port() const = 0;
 		[[nodiscard]] virtual std::string remote_address() const = 0;
@@ -126,16 +129,17 @@ namespace sl
 
 		[[nodiscard]] bool write(std::span<const std::uint8_t> buffer) override;
 		void async_write(std::span<const std::uint8_t> buffer, const async_callback_t& handler) override;
+		void async_write(std::span<const std::uint8_t> head, std::span<const std::uint8_t> body, const async_callback_t& handler) override;
 
 		[[nodiscard]] std::uint32_t ipv4_address() const override;
 		[[nodiscard]] std::uint16_t port() const override;
 		[[nodiscard]] std::string remote_address() const override;
 
 	protected:
-		// one queued outbound write; the handler keeps the buffer's memory alive until it runs
 		struct pending_write
 		{
-			std::span<const std::uint8_t> buffer;
+			std::span<const std::uint8_t> head;
+			std::span<const std::uint8_t> body;
 			async_callback_t handler;
 		};
 

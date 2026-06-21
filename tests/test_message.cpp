@@ -56,17 +56,54 @@ TEST(Message, RecvOnEmptySocketFails)
 	EXPECT_FALSE(sl::msg::recv_buffer(socket, body).has_value());
 }
 
-TEST(Message, MakeFromBodyPrependsHeader)
+TEST(Message, MakeFromBodySeparatesHeaderAndBody)
 {
 	const std::vector<std::uint8_t> body = {1, 2, 3, 4};
 	const sl::msg::message_t message = sl::msg::make_from_body(ping_id, body);
 
-	EXPECT_GT(message.header_size, 0u);
-	EXPECT_EQ(message.buffer.size(), message.header_size + body.size());
+	EXPECT_FALSE(message.header.empty());
+	EXPECT_EQ(message.body.size(), body.size());
+	EXPECT_TRUE(std::equal(message.body.begin(), message.body.end(), body.begin()));
+}
 
-	// the body bytes sit immediately after the header
-	const std::span<const std::uint8_t> tail(message.buffer.data() + message.header_size, body.size());
-	EXPECT_TRUE(std::equal(tail.begin(), tail.end(), body.begin()));
+TEST(ZeroCopy, SendViewRoundTrip)
+{
+	test::memory_socket socket;
+
+	const auto body = sl::serialisation::serialise(sl::serialisation::lift<TestMsg::CreatePing>(), 7u, 0xABCDull);
+
+	const bool sent = sl::msg::send_view(socket, ping_id, body);
+	EXPECT_TRUE(sent);
+
+	std::vector<std::uint8_t> recv_body;
+	const TestMsg::Ping* ping = sl::msg::recv<TestMsg::Ping>(socket, recv_body);
+
+	ASSERT_NE(ping, nullptr);
+	EXPECT_EQ(ping->seq(), 7u);
+	EXPECT_EQ(ping->value(), 0xABCDull);
+}
+
+TEST(ZeroCopy, AsyncSendViewRoundTrip)
+{
+	test::memory_socket socket;
+
+	const auto body = sl::serialisation::serialise(sl::serialisation::lift<TestMsg::CreatePing>(), 3u, 42ull);
+
+	bool handler_called = false;
+	bool handler_result = false;
+	sl::msg::async_send_view(socket, ping_id,
+		[&](const bool ok) { handler_called = true; handler_result = ok; },
+		std::span<const std::uint8_t>(body));
+
+	EXPECT_TRUE(handler_called);
+	EXPECT_TRUE(handler_result);
+
+	std::vector<std::uint8_t> recv_body;
+	const TestMsg::Ping* ping = sl::msg::recv<TestMsg::Ping>(socket, recv_body);
+
+	ASSERT_NE(ping, nullptr);
+	EXPECT_EQ(ping->seq(), 3u);
+	EXPECT_EQ(ping->value(), 42ull);
 }
 
 TEST(MaxMessageSize, UnlimitedByDefaultAcceptsMessage)

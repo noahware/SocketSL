@@ -3,6 +3,8 @@
 
 #include <schema/system_generated.h>
 
+#include <array>
+
 namespace sl
 {
 	void socket::erase(const std::size_t size)
@@ -310,6 +312,11 @@ namespace sl
 
 	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> buffer, const async_callback_t& handler)
 	{
+		async_write(buffer, {}, handler);
+	}
+
+	void boost_tcp_socket::async_write(const std::span<const std::uint8_t> head, const std::span<const std::uint8_t> body, const async_callback_t& handler)
+	{
 		bool idle = false;
 		bool rejected = false;
 
@@ -323,11 +330,10 @@ namespace sl
 			else
 			{
 				idle = write_queue_.empty();
-				write_queue_.push_back({buffer, handler});
+				write_queue_.push_back({head, body, handler});
 			}
 		}
 
-		// queue full: the peer isn't draining -- fail this send rather than growing memory unbounded
 		if (rejected)
 		{
 			if (handler)
@@ -338,7 +344,6 @@ namespace sl
 			return;
 		}
 
-		// only the writer that found the queue idle starts the chain; the rest just queued
 		if (idle)
 		{
 			write_next();
@@ -347,14 +352,21 @@ namespace sl
 
 	void boost_tcp_socket::write_next()
 	{
-		std::span<const std::uint8_t> buffer;
+		std::span<const std::uint8_t> head;
+		std::span<const std::uint8_t> body;
 
 		{
 			const std::lock_guard lock(write_mutex_);
-			buffer = write_queue_.front().buffer;
+			head = write_queue_.front().head;
+			body = write_queue_.front().body;
 		}
 
-		boost::asio::async_write(*stream_, boost::asio::buffer(buffer.data(), buffer.size()),
+		std::array<boost::asio::const_buffer, 2> buffers = {
+			boost::asio::buffer(head.data(), head.size()),
+			boost::asio::buffer(body.data(), body.size())
+		};
+
+		boost::asio::async_write(*stream_, buffers,
 			[this](const boost::system::error_code& error_code, const std::size_t)
 			{
 				async_callback_t handler;
