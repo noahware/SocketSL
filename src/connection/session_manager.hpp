@@ -1,13 +1,23 @@
 #pragma once
 #include "session.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 
 namespace sl
 {
+	struct reconnect_policy
+	{
+		std::chrono::steady_clock::duration initial_delay{std::chrono::seconds(1)};
+		std::chrono::steady_clock::duration max_delay{std::chrono::seconds(30)};
+		double multiplier = 2.0;
+		std::size_t max_attempts = 0;
+	};
+
 	class session_manager
 	{
 	public:
@@ -51,6 +61,9 @@ namespace sl
 		[[nodiscard]] std::size_t session_count() const;
 
 	protected:
+		void apply_caps(session& sess) const;
+		virtual void on_session_removed(const std::shared_ptr<session>&) {}
+
 		void register_and_start(std::shared_ptr<session> sess);
 
 		// admission control for an inbound connection from ip: false if a cap would be exceeded
@@ -96,6 +109,31 @@ namespace sl
 		// convenience: builds the socket + session, dials, and returns the new session
 		std::shared_ptr<SessionT> connect(std::string_view host, std::string_view service, std::shared_ptr<boost_ssl_context> ssl_context);
 
+		// like connect(), but re-dials automatically with exponential backoff when the session drops
+		std::shared_ptr<SessionT> connect(std::string_view host, std::string_view service,
+			std::shared_ptr<boost_ssl_context> ssl_context, const reconnect_policy& policy);
+
+	private:
+		struct reconnect_state
+		{
+			std::string host;
+			std::string service;
+			std::shared_ptr<boost_ssl_context> ssl_context;
+			reconnect_policy policy;
+			std::size_t attempts = 0;
+			timeout_duration current_delay{};
+		};
+
+		void on_session_removed(const std::shared_ptr<session>& sess) override;
+		void do_connect(std::shared_ptr<SessionT> sess, std::string host, std::string service,
+			std::optional<reconnect_state> state = std::nullopt);
+		void schedule_reconnect(reconnect_state state);
+		void attempt_reconnect(reconnect_state state);
+
+		std::mutex reconnect_mutex_;
+		std::unordered_map<session*, reconnect_state> reconnect_map_;
+		std::atomic<bool> reconnect_stopped_{false};
+
 	protected:
 		executor_type executor_;
 		std::shared_ptr<boost_ssl_context> ssl_context_;
@@ -126,6 +164,13 @@ namespace sl
 	template <class SessionT>
 	void boost_session_manager<SessionT>::stop()
 	{
+		reconnect_stopped_ = true;
+
+		{
+			const std::lock_guard lock(reconnect_mutex_);
+			reconnect_map_.clear();
+		}
+
 		boost::system::error_code ec;
 		acceptor_->close(ec);
 
@@ -138,8 +183,163 @@ namespace sl
 		auto socket = std::make_unique<boost_tcp_socket>(executor_, std::move(ssl_context));
 		auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());
 
-		session_manager::connect(sess, host, service);
+		do_connect(sess, std::string(host), std::string(service));
 
 		return sess;
+	}
+
+	template <class SessionT>
+	std::shared_ptr<SessionT> boost_session_manager<SessionT>::connect(
+		const std::string_view host, const std::string_view service,
+		std::shared_ptr<boost_ssl_context> ssl_context, const reconnect_policy& policy)
+	{
+		auto socket = std::make_unique<boost_tcp_socket>(executor_, ssl_context);
+		auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());
+
+		reconnect_state state;
+		state.host = std::string(host);
+		state.service = std::string(service);
+		state.ssl_context = std::move(ssl_context);
+		state.policy = policy;
+		state.current_delay = policy.initial_delay;
+
+		do_connect(sess, std::string(host), std::string(service), std::move(state));
+
+		return sess;
+	}
+
+	template <class SessionT>
+	void boost_session_manager<SessionT>::on_session_removed(const std::shared_ptr<session>& sess)
+	{
+		reconnect_state state;
+		bool found = false;
+
+		{
+			const std::lock_guard lock(reconnect_mutex_);
+
+			const auto entry = reconnect_map_.find(sess.get());
+
+			if (entry != reconnect_map_.end())
+			{
+				state = std::move(entry->second);
+				reconnect_map_.erase(entry);
+				found = true;
+			}
+		}
+
+		if (found)
+		{
+			schedule_reconnect(std::move(state));
+		}
+	}
+
+	template <class SessionT>
+	void boost_session_manager<SessionT>::do_connect(std::shared_ptr<SessionT> sess,
+		std::string host, std::string service, std::optional<reconnect_state> state)
+	{
+		apply_caps(*sess);
+
+		sess->async_connect(host, service,
+			[this, sess, state = std::move(state)](const bool connected) mutable
+			{
+				if (state && reconnect_stopped_)
+				{
+					return;
+				}
+
+				if (!connected)
+				{
+					if (state)
+					{
+						schedule_reconnect(std::move(*state));
+					}
+
+					return;
+				}
+
+				sess->async_handshake(sl::socket::handshake_type::client,
+					[this, sess, state = std::move(state)](const bool is_valid) mutable
+					{
+						if (state && reconnect_stopped_)
+						{
+							return;
+						}
+
+						if (!is_valid)
+						{
+							if (state)
+							{
+								schedule_reconnect(std::move(*state));
+							}
+
+							return;
+						}
+
+						if (state)
+						{
+							state->attempts = 0;
+							state->current_delay = state->policy.initial_delay;
+
+							{
+								const std::lock_guard lock(reconnect_mutex_);
+								reconnect_map_[sess.get()] = std::move(*state);
+							}
+						}
+
+						register_and_start(sess);
+					}
+				);
+			}
+		);
+	}
+
+	template <class SessionT>
+	void boost_session_manager<SessionT>::schedule_reconnect(reconnect_state state)
+	{
+		if (reconnect_stopped_)
+		{
+			return;
+		}
+
+		state.attempts++;
+
+		if (state.policy.max_attempts != 0 && state.attempts > state.policy.max_attempts)
+		{
+			return;
+		}
+
+		auto timer = std::make_shared<boost::asio::steady_timer>(executor_);
+		timer->expires_after(state.current_delay);
+		timer->async_wait(
+			[this, timer, state = std::move(state)](const boost::system::error_code& ec) mutable
+			{
+				if (ec || reconnect_stopped_)
+				{
+					return;
+				}
+
+				state.current_delay = std::min(
+					std::chrono::duration_cast<timeout_duration>(state.current_delay * state.policy.multiplier),
+					state.policy.max_delay);
+
+				attempt_reconnect(std::move(state));
+			}
+		);
+	}
+
+	template <class SessionT>
+	void boost_session_manager<SessionT>::attempt_reconnect(reconnect_state state)
+	{
+		if (reconnect_stopped_)
+		{
+			return;
+		}
+
+		auto socket = std::make_unique<boost_tcp_socket>(executor_, state.ssl_context);
+		auto sess = std::make_shared<SessionT>(std::move(socket), this->shared_from_this());
+
+		auto host = state.host;
+		auto service = state.service;
+		do_connect(sess, std::move(host), std::move(service), std::move(state));
 	}
 }

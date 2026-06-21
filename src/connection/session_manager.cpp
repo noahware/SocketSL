@@ -49,6 +49,34 @@ namespace sl
 		on_disconnect_ = std::move(callback);
 	}
 
+	void session_manager::apply_caps(session& sess) const
+	{
+		if (idle_timeout_ != timeout_duration::zero())
+		{
+			sess.socket().set_idle_timeout(idle_timeout_);
+		}
+
+		if (heartbeat_timeout_ != timeout_duration::zero())
+		{
+			sess.socket().set_heartbeat_timeout(heartbeat_timeout_);
+		}
+
+		if (handshake_timeout_ != timeout_duration::zero())
+		{
+			sess.socket().set_handshake_timeout(handshake_timeout_);
+		}
+
+		if (max_message_size_ != 0)
+		{
+			sess.socket().set_max_message_size(max_message_size_);
+		}
+
+		if (max_pending_writes_ != 0)
+		{
+			sess.socket().set_max_pending_writes(max_pending_writes_);
+		}
+	}
+
 	void session_manager::register_and_start(std::shared_ptr<session> sess)
 	{
 		{
@@ -96,30 +124,7 @@ namespace sl
 			return;
 		}
 
-		if (idle_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_idle_timeout(idle_timeout_);
-		}
-
-		if (heartbeat_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
-		}
-
-		if (handshake_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_handshake_timeout(handshake_timeout_);
-		}
-
-		if (max_message_size_ != 0)
-		{
-			sess->socket().set_max_message_size(max_message_size_);
-		}
-
-		if (max_pending_writes_ != 0)
-		{
-			sess->socket().set_max_pending_writes(max_pending_writes_);
-		}
+		apply_caps(*sess);
 
 		sess->async_handshake(sl::socket::handshake_type::server,
 			[this, sess](const bool is_valid)
@@ -134,30 +139,7 @@ namespace sl
 
 	void session_manager::connect(std::shared_ptr<session> sess, const std::string_view host, const std::string_view service)
 	{
-		if (idle_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_idle_timeout(idle_timeout_);
-		}
-
-		if (heartbeat_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
-		}
-
-		if (handshake_timeout_ != timeout_duration::zero())
-		{
-			sess->socket().set_handshake_timeout(handshake_timeout_);
-		}
-
-		if (max_message_size_ != 0)
-		{
-			sess->socket().set_max_message_size(max_message_size_);
-		}
-
-		if (max_pending_writes_ != 0)
-		{
-			sess->socket().set_max_pending_writes(max_pending_writes_);
-		}
+		apply_caps(*sess);
 
 		sess->async_connect(host, service,
 			[this, sess](const bool connected)
@@ -214,6 +196,8 @@ namespace sl
 		{
 			on_disconnect_(removed);
 		}
+
+		on_session_removed(removed);
 	}
 
 	std::size_t session_manager::session_count() const

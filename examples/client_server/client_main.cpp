@@ -1,4 +1,5 @@
 #include <connection/session.hpp>
+#include <connection/session_manager.hpp>
 
 #include <message/message.hpp>
 #include <router/router.hpp>
@@ -8,6 +9,7 @@
 #include "../common/log.hpp"
 
 #include <chrono>
+#include <csignal>
 #include <string_view>
 #include <thread>
 
@@ -147,15 +149,63 @@ namespace
 
 		LOG_INFO("silent client done (was alive the whole time)");
 	}
+
+	void run_reconnect_client()
+	{
+		LOG_INFO("reconnect client (auto-reconnect with backoff)");
+
+		boost::asio::io_context io_context;
+		const auto ssl_ctx = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_client);
+		set_up_ssl_context(*ssl_ctx);
+
+		const auto manager = std::make_shared<sl::boost_session_manager<async_client>>(
+			io_context.get_executor(), ssl_ctx, 0);
+
+		manager->on_connect([](const std::shared_ptr<sl::session>& sess)
+		{
+			LOG_INFO("connected to {}:{}", sess->socket().remote_address(), sess->socket().port());
+
+			constexpr std::uint64_t request_key = 0x12345;
+			sl::msg::send<Client::CreateTestRequest>(sess->socket(), Client::RequestId_Test, request_key);
+		});
+
+		manager->on_disconnect([](const std::shared_ptr<sl::session>&)
+		{
+			LOG_INFO("disconnected -- waiting for auto-reconnect");
+		});
+
+		sl::reconnect_policy policy;
+		policy.initial_delay = std::chrono::seconds(1);
+		policy.max_delay = std::chrono::seconds(5);
+
+		manager->connect("127.0.0.1", "2457", ssl_ctx, policy);
+
+		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
+		signals.async_wait(
+			[&manager](const boost::system::error_code&, int)
+			{
+				LOG_INFO("shutting down");
+				manager->stop();
+			}
+		);
+
+		io_context.run();
+	}
 }
 
 std::int32_t main(const int argc, const char* const* argv)
 {
 	try
 	{
-		if (argc > 1 && std::string_view(argv[1]) == "silent")
+		const auto mode = argc > 1 ? std::string_view(argv[1]) : std::string_view{};
+
+		if (mode == "silent")
 		{
 			run_silent_client();
+		}
+		else if (mode == "reconnect")
+		{
+			run_reconnect_client();
 		}
 		else
 		{
