@@ -2,9 +2,11 @@
 #include "session_manager.hpp"
 
 #include <serialisation/serialisation.hpp>
+#include <message/message.hpp>
 #include <endian/endian.hpp>
 
 #include <schema/message_generated.h>
+#include <schema/system_generated.h>
 
 namespace sl
 {
@@ -64,7 +66,7 @@ namespace sl
 		}
 	}
 
-	bool session::parse_header(const std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size)
+	bool session::parse_header(const std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size, bool& out_is_system)
 	{
 		if (!serialisation::is_valid<MessageHeader>(header))
 		{
@@ -75,6 +77,7 @@ namespace sl
 
 		out_type = message_header->type();
 		out_body_size = message_header->body_size();
+		out_is_system = message_header->is_system();
 
 		return true;
 	}
@@ -122,20 +125,21 @@ namespace sl
 
 				message_id_t type = 0;
 				std::size_t body_size = 0;
+				bool is_system = false;
 
-				if (!parse_header(*header_buffer, type, body_size))
+				if (!parse_header(*header_buffer, type, body_size, is_system))
 				{
 					self->on_error();
 
 					return;
 				}
 
-				self->read_body(type, body_size);
+				self->read_body(type, body_size, is_system);
 			}
 		);
 	}
 
-	void session::read_body(const message_id_t type, const std::size_t body_size)
+	void session::read_body(const message_id_t type, const std::size_t body_size, const bool is_system)
 	{
 		const std::size_t max_message_size = socket_->max_message_size();
 		if (max_message_size != 0 && body_size > max_message_size)
@@ -148,7 +152,7 @@ namespace sl
 		const auto body_buffer = std::make_shared<std::vector<std::uint8_t>>(body_size);
 
 		socket_->async_read(*body_buffer,
-			[self = shared_from_this(), type, body_buffer](const bool is_valid)
+			[self = shared_from_this(), type, body_buffer, is_system](const bool is_valid)
 			{
 				if (!is_valid)
 				{
@@ -157,10 +161,25 @@ namespace sl
 					return;
 				}
 
-				self->handle_message(type, body_buffer);
+				if (is_system)
+				{
+					self->handle_sys_message(type, body_buffer);
+				}
+				else
+				{
+					self->handle_message(type, body_buffer);
+				}
 
 				self->read_frame_size();
 			}
 		);
+	}
+
+	void session::handle_sys_message(const message_id_t id, [[maybe_unused]] const body_buffer_t body)
+	{
+		if (id == System::MessageId_HbPing)
+		{
+			msg::async_send<System::CreateHbPongRequest, true>(*socket_, System::MessageId_HbPong);
+		}
 	}
 }

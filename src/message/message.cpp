@@ -10,11 +10,11 @@ namespace sl::msg
 {
 	namespace
 	{
-		void add_header(const message_id_t id, message_t& message)
+		void add_header(const message_id_t id, message_t& message, const bool is_system)
 		{
 			std::vector<std::uint8_t>& buffer = message.buffer;
 
-			const std::vector<std::uint8_t> header = make_header(id, buffer.size());
+			const std::vector<std::uint8_t> header = make_header(id, buffer.size(), is_system);
 
 			buffer.insert(buffer.begin(), header.begin(), header.end());
 
@@ -22,16 +22,16 @@ namespace sl::msg
 		}
 	}
 
-	std::vector<std::uint8_t> make_header(const message_id_t id, const std::size_t body_size)
+	std::vector<std::uint8_t> make_header(const message_id_t id, const std::size_t body_size, const bool is_system)
 	{
-		return serialisation::serialise(serialisation::lift<CreateMessageHeader>(), id, body_size);
+		return serialisation::serialise(serialisation::lift<CreateMessageHeader>(), id, body_size, is_system);
 	}
 
-	message_t make_from_body(const message_id_t id, const std::span<const std::uint8_t> body)
+	message_t make_from_body(const message_id_t id, const std::span<const std::uint8_t> body, const bool is_system)
 	{
 		message_t message = { .header_size = 0, .buffer = {body.begin(), body.end()} };
 
-		add_header(id, message);
+		add_header(id, message, is_system);
 
 		return message;
 	}

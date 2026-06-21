@@ -32,7 +32,8 @@ namespace sl
 		socket() = default;
 		virtual ~socket() = default;
 
-		virtual void set_timeout(timeout_duration timeout) = 0;
+		virtual void set_idle_timeout(timeout_duration timeout) = 0;
+		virtual void set_heartbeat_timeout(timeout_duration timeout) = 0;
 
 		// receive-side cap on a single message's header and body; 0 = unlimited
 		virtual void set_max_message_size(std::size_t max_size) = 0;
@@ -102,7 +103,8 @@ namespace sl
 			capture_remote_endpoint();
 		}
 
-		void set_timeout(timeout_duration timeout) override;
+		void set_idle_timeout(timeout_duration timeout) override;
+		void set_heartbeat_timeout(timeout_duration timeout) override;
 		void set_max_message_size(std::size_t max_size) override;
 		[[nodiscard]] std::size_t max_message_size() const override;
 		void set_max_pending_writes(std::size_t max_pending) override;
@@ -139,6 +141,10 @@ namespace sl
 		// a completed read); if it fires, the peer has gone silent for the timeout and we close
 		void reset_idle_timer();
 
+		// heartbeat timer: on inactivity, ping once; if still no traffic next interval, close
+		void reset_heartbeat_timer();
+		void arm_heartbeat();
+
 		[[nodiscard]] std::optional<resolver_type::results_type> resolve_host(std::string_view host, std::string_view service) const;
 		void capture_remote_endpoint();
 
@@ -150,10 +156,13 @@ namespace sl
 		executor_type executor_;
 		std::shared_ptr<boost_ssl_context> ssl_context_;
 		std::unique_ptr<asio_stream_type> stream_;
-		timeout_duration timeout_{};
+		timeout_duration idle_timeout_{};
+		timeout_duration heartbeat_timeout_{};
+		bool heartbeat_sent_ = false;
 		std::size_t max_message_size_ = default_max_message_size;
 		std::size_t max_pending_writes_ = default_max_pending_writes;
 		std::unique_ptr<boost::asio::steady_timer> idle_timer_;
+		std::unique_ptr<boost::asio::steady_timer> heartbeat_timer_;
 		asio_endpoint_type remote_endpoint_{};
 		std::mutex write_mutex_;
 		std::deque<pending_write> write_queue_;

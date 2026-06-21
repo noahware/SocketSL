@@ -1,4 +1,7 @@
 #include "socket.hpp"
+#include <message/message.hpp>
+
+#include <schema/system_generated.h>
 
 namespace sl
 {
@@ -21,9 +24,14 @@ namespace sl
 		);
 	}
 
-	void boost_tcp_socket::set_timeout(const timeout_duration timeout)
+	void boost_tcp_socket::set_idle_timeout(const timeout_duration timeout)
 	{
-		timeout_ = timeout;
+		idle_timeout_ = timeout;
+	}
+
+	void boost_tcp_socket::set_heartbeat_timeout(const timeout_duration timeout)
+	{
+		heartbeat_timeout_ = timeout;
 	}
 
 	void boost_tcp_socket::set_max_message_size(const std::size_t max_size)
@@ -48,7 +56,7 @@ namespace sl
 
 	void boost_tcp_socket::reset_idle_timer()
 	{
-		if (timeout_ == timeout_duration::zero())
+		if (idle_timeout_ == timeout_duration::zero())
 		{
 			return;
 		}
@@ -60,13 +68,61 @@ namespace sl
 
 		// expires_after cancels the previous wait (its handler fires with operation_aborted),
 		// so each call just restarts the inactivity countdown
-		idle_timer_->expires_after(timeout_);
+		idle_timer_->expires_after(idle_timeout_);
 		idle_timer_->async_wait(
 			[this](const boost::system::error_code& ec)
 			{
 				if (!ec)
 				{
 					stream_->lowest_layer().close();
+				}
+			}
+		);
+	}
+
+	void boost_tcp_socket::reset_heartbeat_timer()
+	{
+		if (heartbeat_timeout_ == timeout_duration::zero())
+		{
+			return;
+		}
+
+		if (!heartbeat_timer_)
+		{
+			heartbeat_timer_ = std::make_unique<boost::asio::steady_timer>(executor_);
+		}
+
+		heartbeat_sent_ = false;
+
+		arm_heartbeat();
+	}
+
+	void boost_tcp_socket::arm_heartbeat()
+	{
+		// expires_after cancels the previous wait (its handler fires with operation_aborted),
+		// so each call just restarts the countdown
+		heartbeat_timer_->expires_after(heartbeat_timeout_);
+		heartbeat_timer_->async_wait(
+			[this](const boost::system::error_code& ec)
+			{
+				if (ec)
+				{
+					return;
+				}
+
+				if (heartbeat_sent_)
+				{
+					// pinged last interval and still no traffic back -- the peer is gone
+					stream_->lowest_layer().close();
+				}
+				else
+				{
+					msg::async_send<System::CreateHbPingRequest, true>(*this, System::MessageId_HbPing);
+
+					heartbeat_sent_ = true;
+
+					// wait one more interval for a response; if none arrives we close above
+					arm_heartbeat();
 				}
 			}
 		);
@@ -105,6 +161,7 @@ namespace sl
 	void boost_tcp_socket::async_connect(const std::string_view host, const std::string_view service, const async_callback_t& handler)
 	{
 		reset_idle_timer();
+		reset_heartbeat_timer();
 
 		const auto resolver = std::make_shared<resolver_type>(executor_);
 
@@ -157,6 +214,7 @@ namespace sl
 	void boost_tcp_socket::async_handshake(const handshake_type type, const async_callback_t& handler)
 	{
 		reset_idle_timer();
+		reset_heartbeat_timer();
 
 		const asio_handshake_type asio_type = to_asio_handshake_type(type);
 
@@ -166,6 +224,7 @@ namespace sl
 				if (!error_code)
 				{
 					reset_idle_timer();
+					reset_heartbeat_timer();
 				}
 
 				handler(!error_code);
@@ -191,6 +250,7 @@ namespace sl
 				if (!error_code)
 				{
 					reset_idle_timer();
+					reset_heartbeat_timer();
 				}
 
 				handler(!error_code);

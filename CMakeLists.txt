@@ -91,6 +91,7 @@ file(MAKE_DIRECTORY "${FBS_GENERATED_DIR}")
 
 set(FBS_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/message/message.fbs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/message/system.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/request.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/client_server/response.fbs"
     "${CMAKE_CURRENT_SOURCE_DIR}/examples/peer/peer.fbs"

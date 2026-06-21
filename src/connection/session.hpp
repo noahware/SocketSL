@@ -38,6 +38,8 @@ namespace sl
 		void stop();
 
 	protected:
+		void handle_sys_message(message_id_t id, body_buffer_t body);
+
 		// a complete message body has been received
 		virtual void handle_message(message_id_t id, body_buffer_t body) = 0;
 
@@ -56,10 +58,10 @@ namespace sl
 		std::shared_ptr<session_manager> manager_;
 
 	private:
-		[[nodiscard]] static bool parse_header(std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size);
+		[[nodiscard]] static bool parse_header(std::span<const std::uint8_t> header, message_id_t& out_type, std::size_t& out_body_size, bool& out_is_system);
 
 		void read_frame_size();
 		void read_header(std::size_t header_size);
-		void read_body(message_id_t type, std::size_t body_size);
+		void read_body(message_id_t type, std::size_t body_size, bool is_system);
 	};
 }

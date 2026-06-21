@@ -18,7 +18,9 @@ namespace test
 		using sl::socket::read;
 		using sl::socket::write;
 
-		void set_timeout(timeout_duration) override {}
+		void set_idle_timeout(timeout_duration) override {}
+
+		void set_heartbeat_timeout(timeout_duration) override {}
 
 		void set_max_message_size(const std::size_t max_size) override
 		{

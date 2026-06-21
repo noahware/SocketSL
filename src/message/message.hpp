@@ -25,9 +25,9 @@ namespace sl::msg
 	template <class T>
 	concept completion_handler = std::is_invocable_v<T> || std::is_invocable_v<T, bool>;
 
-	[[nodiscard]] std::vector<std::uint8_t> make_header(message_id_t id, std::size_t body_size);
+	[[nodiscard]] std::vector<std::uint8_t> make_header(message_id_t id, std::size_t body_size, bool is_system = false);
 
-	[[nodiscard]] message_t make_from_body(message_id_t id, std::span<const std::uint8_t> body);
+	[[nodiscard]] message_t make_from_body(message_id_t id, std::span<const std::uint8_t> body, bool is_system = false);
 
 	// synchronous send: [u64 frame size][header][body]; returns whether both writes succeeded
 	bool send_buffer(sl::socket& socket, std::span<const std::uint8_t> buffer, std::size_t header_size);
@@ -61,36 +61,36 @@ namespace sl::msg
 		}
 	}
 
-	template <auto CreateFn, class... Args>
+	template <auto CreateFn, bool is_system = false, class... Args>
 	[[nodiscard]] message_t make(const message_id_t id, Args&&... args)
 	{
 		const auto body = serialisation::serialise(serialisation::lift<CreateFn>(), std::forward<Args>(args)...);
-		return make_from_body(id, body);
+		return make_from_body(id, body, is_system);
 	}
 
 	// synchronous send; returns whether the message was written in full
-	template <auto CreateFn, class... Args>
+	template <auto CreateFn, bool is_system = false, class... Args>
 	bool send(sl::socket& socket, const message_id_t id, Args&&... args)
 	{
-		const auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
+		const auto [header_size, buffer] = make<CreateFn, is_system>(id, std::forward<Args>(args)...);
 		return send_buffer(socket, buffer, header_size);
 	}
 
 	// asynchronous send with a completion handler -- void() or void(bool is_valid)
-	template <auto CreateFn, completion_handler Handler, class... Args>
+	template <auto CreateFn, bool is_system = false, completion_handler Handler, class... Args>
 	void async_send(sl::socket& socket, const message_id_t id, Handler handler, Args&&... args)
 	{
-		auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
+		auto [header_size, buffer] = make<CreateFn, is_system>(id, std::forward<Args>(args)...);
 		auto buffer_ptr = std::make_shared<std::vector<std::uint8_t>>(std::move(buffer));
 		async_send_buffer(socket, buffer_ptr, header_size, detail::adapt(std::move(handler)));
 	}
 
 	// asynchronous send, fire and forget (no completion handler)
-	template <auto CreateFn, class... Args>
+	template <auto CreateFn, bool is_system = false, class... Args>
 		requires (!detail::leading_completion_handler<Args...>)
 	void async_send(sl::socket& socket, const message_id_t id, Args&&... args)
 	{
-		auto [header_size, buffer] = make<CreateFn>(id, std::forward<Args>(args)...);
+		auto [header_size, buffer] = make<CreateFn, is_system>(id, std::forward<Args>(args)...);
 		auto buffer_ptr = std::make_shared<std::vector<std::uint8_t>>(std::move(buffer));
 		async_send_buffer(socket, buffer_ptr, header_size, async_callback_t{});
 	}

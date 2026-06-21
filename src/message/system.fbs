@@ -1,0 +1,17 @@
+namespace System;
+
+enum MessageId : uint8
+{
+    HbPing = 0,
+    HbPong
+} 
+
+table HbPingRequest
+{
+
+}
+
+table HbPongRequest
+{
+
+}

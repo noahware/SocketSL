@@ -2,6 +2,7 @@ table MessageHeader
 {
     type: uint8;
     body_size: uint64;
+    is_system: bool;
 }
 
 root_type MessageHeader;

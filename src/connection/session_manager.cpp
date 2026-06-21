@@ -4,9 +4,14 @@
 
 namespace sl
 {
-	void session_manager::set_timeout(const timeout_duration timeout) noexcept
+	void session_manager::set_idle_timeout(const timeout_duration timeout) noexcept
 	{
-		timeout_ = timeout;
+		idle_timeout_ = timeout;
+	}
+
+	void session_manager::set_heartbeat_timeout(const timeout_duration timeout) noexcept
+	{
+		heartbeat_timeout_ = timeout;
 	}
 
 	void session_manager::set_max_message_size(const std::size_t max_size) noexcept
@@ -46,9 +51,14 @@ namespace sl
 
 	void session_manager::add_session(std::shared_ptr<session> sess)
 	{
-		if (timeout_ != timeout_duration::zero())
+		if (idle_timeout_ != timeout_duration::zero())
 		{
-			sess->socket().set_timeout(timeout_);
+			sess->socket().set_idle_timeout(idle_timeout_);
+		}
+
+		if (heartbeat_timeout_ != timeout_duration::zero())
+		{
+			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
 		}
 
 		if (max_message_size_ != 0)
@@ -74,9 +84,14 @@ namespace sl
 
 	void session_manager::connect(std::shared_ptr<session> sess, const std::string_view host, const std::string_view service)
 	{
-		if (timeout_ != timeout_duration::zero())
+		if (idle_timeout_ != timeout_duration::zero())
 		{
-			sess->socket().set_timeout(timeout_);
+			sess->socket().set_idle_timeout(idle_timeout_);
+		}
+
+		if (heartbeat_timeout_ != timeout_duration::zero())
+		{
+			sess->socket().set_heartbeat_timeout(heartbeat_timeout_);
 		}
 
 		if (max_message_size_ != 0)

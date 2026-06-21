@@ -7,6 +7,10 @@
 
 #include "../common/log.hpp"
 
+#include <chrono>
+#include <string_view>
+#include <thread>
+
 namespace
 {
 	void set_up_ssl_context(sl::ssl_context& context)
@@ -114,14 +118,50 @@ namespace
 		session->start();
 		io_context.run();
 	}
+
+	void run_silent_client()
+	{
+		LOG_INFO("silent client (connect + handshake, then idle without answering pings)");
+
+		boost::asio::io_context io_context;
+		const auto ssl_ctx = std::make_shared<sl::boost_ssl_context>(sl::boost_ssl_context::ssl_method_type::tlsv12_client);
+		set_up_ssl_context(*ssl_ctx);
+
+		sl::boost_tcp_socket sock(io_context.get_executor(), ssl_ctx);
+
+		if (!sock.connect("127.0.0.1", "2457"))
+		{
+			LOG_ERR("failed to connect to server");
+			return;
+		}
+
+		if (!sock.handshake(sl::socket::handshake_type::client))
+		{
+			LOG_ERR("failed to handshake");
+			return;
+		}
+
+		LOG_INFO("handshake ok; idling silently for 12s (never reading, so never answering pings)");
+
+		std::this_thread::sleep_for(std::chrono::seconds(12));
+
+		LOG_INFO("silent client done (was alive the whole time)");
+	}
 }
 
-std::int32_t main()
+std::int32_t main(const int argc, const char* const* argv)
 {
 	try
 	{
-		run_sync_client();
-		run_async_client();
+		if (argc > 1 && std::string_view(argv[1]) == "silent")
+		{
+			run_silent_client();
+		}
+		else
+		{
+			run_sync_client();
+			run_async_client();
+		}
 	}
 	catch (const std::exception& e)
 	{

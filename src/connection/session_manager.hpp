@@ -15,7 +15,8 @@ namespace sl
 		session_manager() = default;
 		virtual ~session_manager() = default;
 
-		void set_timeout(timeout_duration timeout) noexcept;
+		void set_idle_timeout(timeout_duration timeout) noexcept;
+		void set_heartbeat_timeout(timeout_duration timeout) noexcept;
 		void set_max_message_size(std::size_t max_size) noexcept;
 		void set_max_pending_writes(std::size_t max_pending) noexcept;
 
@@ -45,7 +46,8 @@ namespace sl
 	protected:
 		void register_and_start(std::shared_ptr<session> sess);
 
-		timeout_duration timeout_{};
+		timeout_duration idle_timeout_{};
+		timeout_duration heartbeat_timeout_{};
 		std::size_t max_message_size_{};
 		std::size_t max_pending_writes_{};
 		session_callback_t on_connect_;
